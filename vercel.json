@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "src/app/api/**/*.js": {
+      "maxDuration": 300
+    }
+  },
+  "api": {
+    "bodyParser": {
+      "sizeLimit": "2gb"
+    }
+  }
+}

@@ -3,14 +3,18 @@ const nextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: "**",
-      },
-      {
-        protocol: "http",
-        hostname: "**",
+        protocol: 'https',
+        hostname: '**',
       },
     ],
+  },
+  api: {
+    bodyParser: {
+      sizeLimit: '2gb',
+    },
+  },
+  experimental: {
+    serverComponentsExternalPackages: ['@aws-sdk/client-s3'],
   },
 };
 
