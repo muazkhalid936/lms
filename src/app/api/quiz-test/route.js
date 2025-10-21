@@ -44,10 +44,10 @@ export async function POST(request) {
             );
         }
 
-        const maxSize = 100 * 1024 * 1024;
-        if (videoFile.size > maxSize) {
-            return NextResponse.json(
-                { error: 'Video file too large. Maximum size is 100MB' },
+        const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+    if (videoFile.size > maxSize) {
+      return NextResponse.json(
+        { error: 'Video file too large. Maximum size is 2GB' },
                 { status: 400 }
             );
         }

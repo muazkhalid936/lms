@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import dbConnect from '@/lib/utils/dbConnect';
 import Lesson from '@/lib/models/Lesson';
 import Course from '@/lib/models/Course';
-import { uploadToS3, deleteFromS3 } from '@/lib/services/awsService';
+import { uploadToS3, deleteFromS3, uploadLargeFile } from '@/lib/services/awsService';
 import { calculateAndUpdateCourseStats } from '@/lib/utils/courseStats';
 
 export async function GET(request, { params }) {
@@ -85,7 +85,12 @@ export async function PUT(request, { params }) {
             await deleteFromS3(lesson.content.videoKey);
           }
           
-          const uploadResult = await uploadToS3(videoFile, 'lesson-videos');
+          // Use multipart upload for files larger than 10MB
+          const useMultipart = videoFile.size > 10 * 1024 * 1024;
+          const uploadResult = useMultipart 
+            ? await uploadLargeFile(videoFile, 'lesson-videos')
+            : await uploadToS3(videoFile, 'lesson-videos');
+            
           if (uploadResult.success) {
             updateData.content = {
               ...lesson.content,

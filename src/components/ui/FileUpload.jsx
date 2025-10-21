@@ -6,7 +6,7 @@ const FileUploadComponent = ({
   onUploadComplete, 
   onUploadError, 
   acceptedTypes = "image/*,video/*,.pdf,.doc,.docx",
-  maxSize = 100 * 1024 * 1024, // 100MB default
+  maxSize = 2 * 1024 * 1024 * 1024, // 2GB default
   folder = 'courses',
   multiple = false,
   className = ""

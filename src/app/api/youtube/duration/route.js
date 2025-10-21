@@ -21,7 +21,7 @@ function extractYouTubeVideoId(url) {
   return null;
 }
 
-// Function to parse ISO 8601 duration to seconds
+// Function to parse ISO 8601 duration format (PT1H2M3S)
 function parseISO8601Duration(duration) {
   const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return 0;
@@ -33,12 +33,13 @@ function parseISO8601Duration(duration) {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
-// Function to format seconds to HH:MM:SS
+// Function to format duration in HH:MM:SS format
 function formatDuration(seconds) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const remainingSeconds = seconds % 60;
+  
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
 export async function POST(request) {
@@ -62,9 +63,14 @@ export async function POST(request) {
     }
 
     try {
-      // Method 1: Try using YouTube oEmbed API (doesn't provide duration but validates URL)
+      // Method 1: Try using YouTube oEmbed API (validates URL and gets basic info)
       const oEmbedResponse = await fetch(
-        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+        `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; LMS-Bot/1.0)',
+          },
+        }
       );
       
       if (!oEmbedResponse.ok) {
@@ -76,10 +82,40 @@ export async function POST(request) {
 
       const oEmbedData = await oEmbedResponse.json();
 
-      // Method 2: Try noembed.com as a fallback (sometimes provides duration)
+      // Method 2: Try YouTube Data API v3 if API key is available
+      if (process.env.YOUTUBE_API_KEY) {
+        try {
+          const youtubeApiResponse = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${process.env.YOUTUBE_API_KEY}`
+          );
+          
+          if (youtubeApiResponse.ok) {
+            const youtubeData = await youtubeApiResponse.json();
+            if (youtubeData.items && youtubeData.items.length > 0) {
+              const duration = youtubeData.items[0].contentDetails.duration;
+              const seconds = parseISO8601Duration(duration);
+              return NextResponse.json({
+                success: true,
+                duration: formatDuration(seconds),
+                title: oEmbedData.title,
+                videoId: videoId
+              });
+            }
+          }
+        } catch (error) {
+          console.log("YouTube API failed, trying alternative methods");
+        }
+      }
+
+      // Method 3: Try noembed.com as a fallback (sometimes provides duration)
       try {
         const noembedResponse = await fetch(
-          `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`
+          `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`,
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; LMS-Bot/1.0)',
+            },
+          }
         );
         
         if (noembedResponse.ok) {
@@ -97,13 +133,19 @@ export async function POST(request) {
         console.log("Noembed failed, trying alternative method");
       }
 
-      // Method 3: Try to extract duration from video page HTML (may be blocked by CORS)
+      // Method 4: Try to extract duration from video page HTML (may be blocked by CORS)
       try {
         const videoPageResponse = await fetch(
           `https://www.youtube.com/watch?v=${videoId}`,
           {
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.5',
+              'Accept-Encoding': 'gzip, deflate, br',
+              'DNT': '1',
+              'Connection': 'keep-alive',
+              'Upgrade-Insecure-Requests': '1',
             }
           }
         );
@@ -115,7 +157,8 @@ export async function POST(request) {
           const durationRegexes = [
             /"lengthSeconds":"(\d+)"/,
             /"duration":"PT(\d+H)?(\d+M)?(\d+S)?"/,
-            /contentDuration":"PT(\d+H)?(\d+M)?(\d+S)?"/
+            /contentDuration":"PT(\d+H)?(\d+M)?(\d+S)?"/,
+            /"approxDurationMs":"(\d+)"/
           ];
 
           for (const regex of durationRegexes) {
@@ -123,6 +166,14 @@ export async function POST(request) {
             if (match) {
               if (match[0].includes('lengthSeconds')) {
                 const seconds = parseInt(match[1]);
+                return NextResponse.json({
+                  success: true,
+                  duration: formatDuration(seconds),
+                  title: oEmbedData.title,
+                  videoId: videoId
+                });
+              } else if (match[0].includes('approxDurationMs')) {
+                const seconds = Math.floor(parseInt(match[1]) / 1000);
                 return NextResponse.json({
                   success: true,
                   duration: formatDuration(seconds),

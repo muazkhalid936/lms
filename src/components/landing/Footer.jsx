@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import Link from "next/link";
 import React, { useState } from "react";
 
 export default function Footer() {
@@ -90,24 +91,21 @@ export default function Footer() {
         </p>
 
         <nav className="flex flex-wrap gap-10 mb-6 text-[14px] font-normal">
-          <a href="#" className="hover:underline">
+          <Link href="about-us" className="hover:underline">
             About
-          </a>
-          <a href="#" className="hover:underline">
+          </Link>
+          <Link href="terms" className="hover:underline">
             Terms
-          </a>
-          <a href="#" className="hover:underline">
+          </Link>
+          <Link href="privacy" className="hover:underline">
             Privacy
-          </a>
-          <a href="#" className="hover:underline">
+          </Link>
+          {/* <Link href="#" className="hover:underline">
             Career
-          </a>
-          <a href="#" className="hover:underline">
+          </Link> */}
+          <Link href="contact-us" className="hover:underline">
             Contact Us
-          </a>
-          <a href="#" className="hover:underline">
-            Cookies
-          </a>
+          </Link>
         </nav>
 
         <div className="flex items-center gap-4 mb-6">

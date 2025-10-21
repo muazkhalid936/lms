@@ -4,7 +4,7 @@ import dbConnect from '@/lib/utils/dbConnect';
 import Chapter from '@/lib/models/Chapter';
 import Lesson from '@/lib/models/Lesson';
 import Course from '@/lib/models/Course';
-import { uploadToS3 } from '@/lib/services/awsService';
+import { uploadToS3, uploadLargeFile } from '@/lib/services/awsService';
 import { calculateAndUpdateCourseStats } from '@/lib/utils/courseStats';
 
 export async function GET(request, { params }) {
@@ -58,7 +58,12 @@ export async function POST(request, { params }) {
       if (lessonData.type === 'video') {
         const videoFile = formData.get('videoFile');
         if (videoFile) {
-          const uploadResult = await uploadToS3(videoFile, 'lesson-videos');
+          // Use multipart upload for files larger than 10MB
+          const useMultipart = videoFile.size > 10 * 1024 * 1024;
+          const uploadResult = useMultipart 
+            ? await uploadLargeFile(videoFile, 'lesson-videos')
+            : await uploadToS3(videoFile, 'lesson-videos');
+            
           if (uploadResult.success) {
             lessonData.content = {
               videoUrl: uploadResult.url,

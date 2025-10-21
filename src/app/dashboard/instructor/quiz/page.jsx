@@ -20,10 +20,10 @@ import { CourseProvider } from '@/contexts/CourseContext';
 //                 return;
 //             }
 
-//             // Check file size (100MB max)
-//             const maxSize = 100 * 1024 * 1024;
-//             if (file.size > maxSize) {
-//                 setError('File too large. Maximum size is 100MB');
+//             // Check file size (2GB max)
+            //             const maxSize = 2 * 1024 * 1024 * 1024;
+            //             if (file.size > maxSize) {
+            //                 setError('File too large. Maximum size is 2GB');
 //                 setSelectedFile(null);
 //                 return;
 //             }
@@ -131,7 +131,7 @@ import { CourseProvider } from '@/contexts/CourseContext';
 //                                     {selectedFile ? selectedFile.name : 'Choose video file'}
 //                                 </span>
 //                                 <span className="text-sm text-gray-500 mt-1">
-//                                     MP4, MOV, AVI, etc. (Max: 100MB)
+//                                     MP4, MOV, AVI, etc. (Max: 2GB)
 //                                 </span>
 //                             </div>
 //                         </label>
