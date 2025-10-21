@@ -57,12 +57,13 @@ export default function CourseListingPage() {
 
       //console.log("Fetched courses:", coursesResponse);
       if (coursesResponse.success) {
-        // Transform API data to match CourseCard component expectations
+        console.log(coursesResponse.data);
         const transformedCourses = coursesResponse.data.map((course) => ({
           id: course._id,
           title: course.courseTitle,
-          instructor: course.instructor?.firstName || "Anonymous",
-          avatar: course.instructor?.avatar || "Anonymous",
+          instructor:
+            course.instructor?.firstName || course.instructor?.userName,
+          avatar: course.instructor?.avatar || "/dashboard/avatar.png",
           image: course.thumbnail?.url || "/course/thumb1.png",
           price: course.discountPrice || 0,
           originalPrice: course.coursePrice || course.pricing?.price || 0,

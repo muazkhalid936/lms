@@ -122,10 +122,29 @@ export async function POST(request, { params }) {
         );
       }
     } else {
-      // Handle JSON data
+      // Handle JSON data (including pre-uploaded files)
       try {
         const body = await request.json();
         lessonData = body;
+        
+        // Handle pre-uploaded files from multipart upload
+        if (lessonData.type === 'video' && lessonData.videoUrl) {
+          lessonData.content = {
+            videoUrl: lessonData.videoUrl,
+            videoKey: lessonData.videoKey,
+            videoName: lessonData.videoName,
+            videoSize: lessonData.videoSize,
+            videoType: lessonData.videoType
+          };
+        } else if (lessonData.type === 'document' && lessonData.documentUrl) {
+          lessonData.content = {
+            documentUrl: lessonData.documentUrl,
+            documentKey: lessonData.documentKey,
+            documentName: lessonData.documentName,
+            documentSize: lessonData.documentSize,
+            documentType: lessonData.documentType
+          };
+        }
       } catch (jsonError) {
         console.error('❌ JSON parsing error:', jsonError);
         return NextResponse.json(

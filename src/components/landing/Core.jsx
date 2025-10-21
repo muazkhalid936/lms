@@ -50,7 +50,7 @@ const features = [
     title: "Smart Dashboards",
     bg: "#FF46671A",
     description:
-      "Tailored dashboards for students, instructors, and institutes with progress tracking and revenue insights.",
+      "Tailored dashboards for students, and instructors with progress tracking and revenue insights.",
     icon: LayoutDashboard,
     glow: "from-rose-400/40 to-fuchsia-400",
   },
@@ -58,7 +58,7 @@ const features = [
     title: "Instant Payouts",
     bg: "#FFF7DA",
     description:
-      "Stripe-powered automatic payouts. 80% of earning go directly to instructors and institutes, 20% is platform commission.",
+      "Stripe-powered automatic payouts. 80% of earning go directly to and instructor, 20% is platform commission.",
     icon: CreditCard,
     glow: "from-yellow-400/40 to-yellow-600",
   },

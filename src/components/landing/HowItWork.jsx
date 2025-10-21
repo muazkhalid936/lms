@@ -5,7 +5,7 @@ import Image from "next/image";
 const steps = [
   {
     img: "/HowItWork/1.svg",
-    title: "Sign up as a student, instructor or institute",
+    title: "Sign up as a student, or instructor",
   },
   {
     img: "/HowItWork/2.svg",

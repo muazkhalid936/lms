@@ -32,6 +32,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { useCourse } from "@/contexts/CourseContext";
+import { useMultipartUpload } from "@/hooks/useMultipartUpload";
 import { Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -67,6 +68,9 @@ const CurriculumComponent = ({ onNext }) => {
   const [sectionName, setSectionName] = useState("");
   const [isFileUploading, setIsFileUploading] = useState(false);
   const [isExtractingDuration, setIsExtractingDuration] = useState(false);
+
+  // Multipart upload hook for large files
+  const { uploadLargeFile, isUploading: isMultipartUploading, uploadProgress, error: uploadError, resetUpload } = useMultipartUpload();
 
   const [lectureTitle, setLectureTitle] = useState("");
   const [lectureDuration, setLectureDuration] = useState("00:00:00");
@@ -810,34 +814,88 @@ const CurriculumComponent = ({ onNext }) => {
             : "";
 
         if (selectedLectureType === "prerecorded" && uploadedFile) {
-          // Create FormData for file upload
-          const formData = new FormData();
-          formData.append("title", lectureTitle.trim());
-          formData.append(
-            "description",
-            `Video lecture: ${lectureTitle.trim()}`
-          ); // Auto-generated description
-          formData.append("type", "video");
-          formData.append("hours", duration.hours.toString());
-          formData.append("minutes", duration.minutes.toString());
-          formData.append("seconds", duration.seconds.toString());
-          formData.append("isFree", "false");
-          formData.append("videoFile", uploadedFile);
+          const fileSizeMB = uploadedFile.size / (1024 * 1024);
+          
+          if (fileSizeMB > 4) {
+            // Use multipart upload for large files
+            try {
+              const uploadResult = await uploadLargeFile(uploadedFile, 'videos');
+              
+              lessonData = {
+                title: lectureTitle.trim(),
+                description: `Video lecture: ${lectureTitle.trim()}`,
+                type: "video",
+                hours: duration.hours.toString(),
+                minutes: duration.minutes.toString(),
+                seconds: duration.seconds.toString(),
+                isFree: false,
+                videoUrl: uploadResult.url,
+                videoKey: uploadResult.key,
+                videoName: uploadedFile.name,
+                videoSize: uploadedFile.size,
+                videoType: uploadedFile.type
+              };
+            } catch (error) {
+              toast.error("Failed to upload large video file");
+              throw error;
+            }
+          } else {
+            // Use regular FormData upload for smaller files
+            const formData = new FormData();
+            formData.append("title", lectureTitle.trim());
+            formData.append(
+              "description",
+              `Video lecture: ${lectureTitle.trim()}`
+            );
+            formData.append("type", "video");
+            formData.append("hours", duration.hours.toString());
+            formData.append("minutes", duration.minutes.toString());
+            formData.append("seconds", duration.seconds.toString());
+            formData.append("isFree", "false");
+            formData.append("videoFile", uploadedFile);
 
-          lessonData = formData;
+            lessonData = formData;
+          }
         } else if (selectedLectureType === "document" && uploadedFile) {
-          // Create FormData for document upload
-          const formData = new FormData();
-          formData.append("title", lectureTitle.trim());
-          formData.append("description", descriptionText);
-          formData.append("type", "document");
-          formData.append("hours", duration.hours.toString());
-          formData.append("minutes", duration.minutes.toString());
-          formData.append("seconds", duration.seconds.toString());
-          formData.append("isFree", "false");
-          formData.append("documentFile", uploadedFile);
+          const fileSizeMB = uploadedFile.size / (1024 * 1024);
+          
+          if (fileSizeMB > 4) {
+            // Use multipart upload for large documents
+            try {
+              const uploadResult = await uploadLargeFile(uploadedFile, 'documents');
+              
+              lessonData = {
+                title: lectureTitle.trim(),
+                description: descriptionText,
+                type: "document",
+                hours: duration.hours.toString(),
+                minutes: duration.minutes.toString(),
+                seconds: duration.seconds.toString(),
+                isFree: false,
+                documentUrl: uploadResult.url,
+                documentKey: uploadResult.key,
+                documentName: uploadedFile.name,
+                documentSize: uploadedFile.size,
+                documentType: uploadedFile.type
+              };
+            } catch (error) {
+              toast.error("Failed to upload large document file");
+              throw error;
+            }
+          } else {
+            // Use regular FormData upload for smaller files
+            const formData = new FormData();
+            formData.append("title", lectureTitle.trim());
+            formData.append("description", descriptionText);
+            formData.append("type", "document");
+            formData.append("hours", duration.hours.toString());
+            formData.append("minutes", duration.minutes.toString());
+            formData.append("seconds", duration.seconds.toString());
+            formData.append("isFree", "false");
+            formData.append("documentFile", uploadedFile);
 
-          lessonData = formData;
+            lessonData = formData;
+          }
         } else {
           // For YouTube and text lessons
           lessonData = {
@@ -1219,8 +1277,10 @@ const CurriculumComponent = ({ onNext }) => {
                       <p className="text-lg font-medium text-gray-900 mb-2">
                         {isExtractingDuration
                           ? "Extracting duration..."
-                          : isFileUploading
-                          ? "Processing..."
+                          : isFileUploading || isMultipartUploading
+                          ? isMultipartUploading && uploadProgress > 0
+                            ? `Uploading... ${Math.round(uploadProgress)}%`
+                            : "Processing..."
                           : uploadedFile
                           ? uploadedFile.name
                           : "Upload Video"}
@@ -1392,14 +1452,17 @@ const CurriculumComponent = ({ onNext }) => {
                   disabled={
                     !lectureTitle.trim() ||
                     isFileUploading ||
+                    isMultipartUploading ||
                     isExtractingDuration
                   }
                   className="bg-[var(--rose-500)] cursor-pointer hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium px-8 py-3 rounded-full transition-colors"
                 >
                   {isExtractingDuration
                     ? "Extracting duration..."
-                    : isFileUploading
-                    ? "Uploading..."
+                    : isFileUploading || isMultipartUploading
+                    ? isMultipartUploading && uploadProgress > 0
+                      ? `Uploading... ${Math.round(uploadProgress)}%`
+                      : "Uploading..."
                     : "Upload"}
                 </button>
               </div>

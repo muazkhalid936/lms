@@ -41,12 +41,7 @@ const testimonials = [
     name: "Amna Tahir",
     role: "Instructor",
   },
-  {
-    quote:
-      "Our institute moved online within weeks, and the revenue dashboard makes everything clear, from enrollments to income tracking.",
-    name: "Sadia Ahmed",
-    role: "Admin",
-  },
+  
   {
     quote:
       "The support team helped us onboard hundreds of learners smoothly with live classes and certificates — their guidance was excellent.",

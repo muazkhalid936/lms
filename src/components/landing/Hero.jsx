@@ -42,7 +42,7 @@ const Hero = () => {
       </p>
 
       <p className="text-[#6d6d6d] text-center text-[15px] font-normal max-w-2xl">
-        Join thousands of students, instructors, coaches, and institute glowing
+        Join thousands of students, instructors, and coaches glowing
         through interactive <br /> courses, live classes, and 1-on-1 sessions.
       </p>
 
