@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+:root {
+  --indigo-800: #392C7D;
+  --indigo-900: #342777;
+  --indigo-700: #5625E8;
+  --rose-500: #FF4667;
+  --rose-500-20: #FF466733;
+  --gray-25:#F4F6F9;
+  --gray-50: #F8F8F8;
+  --gray-100: #E7E7E7;
+  --gray-100-50: #E7E7E780;
+  --gray-200-50: #EFEFEF;
+  --gray-200: #e0e0e0;       
+  --gray-500: #888888;
+  --gray-500-50: #5D5D5D;
+  --gray-600: #6D6D6D;
+  --gray-600-10: #6D6D6D1A;
+  --gray-600-70: #6D6D6DB3;
+  --gray-700: #4F4F4F;
+  --gray-900: #191919;
+  --mint-100: #D2F5E1; 
+  --rose-50:  #FFEDF0; 
+  --indigo-50: #EBE9F1;
+  --amber-500: #FFC107;
+  --green-500: #03C95A;
+  --cyan-400: #0DCAF0;
+  --cyan-50: #E9FAFE;
+  --rose-50: #FFEDF0;
+  --purple-50: #F0EBFD;
+  --purple-600: #5625E8
+  --purple-50: #F7EEF9;
+  --purple-500: #AB47BC;
+
+}
+
+button ,a{
+  cursor: pointer;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
