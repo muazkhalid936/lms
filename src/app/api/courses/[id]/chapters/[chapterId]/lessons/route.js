@@ -41,55 +41,98 @@ export async function POST(request, { params }) {
     
     if (contentType?.includes('multipart/form-data')) {
       // Handle file uploads
-      const formData = await request.formData();
-      lessonData = {
-        title: formData.get('title'),
-        description: formData.get('description'),
-        type: formData.get('type'),
-        isFree: formData.get('isFree') === 'true',
-        duration: {
-          hours: parseInt(formData.get('hours')) || 0,
-          minutes: parseInt(formData.get('minutes')) || 0,
-          seconds: parseInt(formData.get('seconds')) || 0
-        }
-      };
+      try {
+        const formData = await request.formData();
+        lessonData = {
+          title: formData.get('title'),
+          description: formData.get('description'),
+          type: formData.get('type'),
+          isFree: formData.get('isFree') === 'true',
+          duration: {
+            hours: parseInt(formData.get('hours')) || 0,
+            minutes: parseInt(formData.get('minutes')) || 0,
+            seconds: parseInt(formData.get('seconds')) || 0
+          }
+        };
 
-      // Handle different content types
-      if (lessonData.type === 'video') {
-        const videoFile = formData.get('videoFile');
-        if (videoFile) {
-          // Use multipart upload for files larger than 10MB
-          const useMultipart = videoFile.size > 10 * 1024 * 1024;
-          const uploadResult = useMultipart 
-            ? await uploadLargeFile(videoFile, 'lesson-videos')
-            : await uploadToS3(videoFile, 'lesson-videos');
+        // Handle different content types
+        if (lessonData.type === 'video') {
+          const videoFile = formData.get('videoFile');
+          if (videoFile && videoFile.size > 0) {
+            console.log(`📹 Processing video file: ${videoFile.name}, Size: ${(videoFile.size / (1024 * 1024)).toFixed(2)}MB`);
             
-          if (uploadResult.success) {
-            lessonData.content = {
-              videoUrl: uploadResult.url,
-              videoKey: uploadResult.key
-            };
+            // Always use multipart upload for video files to handle large sizes
+            try {
+              const uploadResult = await uploadLargeFile(videoFile, 'lesson-videos');
+              
+              if (uploadResult.success) {
+                lessonData.content = {
+                  videoUrl: uploadResult.url,
+                  videoKey: uploadResult.key
+                };
+                console.log('✅ Video uploaded successfully:', uploadResult.url);
+              } else {
+                console.error('❌ Video upload failed:', uploadResult.error);
+                return NextResponse.json(
+                  { success: false, message: 'Video upload failed', error: uploadResult.error },
+                  { status: 500 }
+                );
+              }
+            } catch (uploadError) {
+              console.error('❌ Video upload error:', uploadError);
+              return NextResponse.json(
+                { success: false, message: 'Video upload failed', error: uploadError.message },
+                { status: 500 }
+              );
+            }
+          }
+        } else if (lessonData.type === 'document') {
+          const documentFile = formData.get('documentFile');
+          if (documentFile && documentFile.size > 0) {
+            try {
+              const uploadResult = await uploadToS3(documentFile, 'lesson-documents');
+              if (uploadResult.success) {
+                lessonData.content = {
+                  documentUrl: uploadResult.url,
+                  documentKey: uploadResult.key,
+                  documentName: documentFile.name,
+                  documentSize: documentFile.size,
+                  documentType: documentFile.type
+                };
+              } else {
+                return NextResponse.json(
+                  { success: false, message: 'Document upload failed', error: uploadResult.error },
+                  { status: 500 }
+                );
+              }
+            } catch (uploadError) {
+              console.error('❌ Document upload error:', uploadError);
+              return NextResponse.json(
+                { success: false, message: 'Document upload failed', error: uploadError.message },
+                { status: 500 }
+              );
+            }
           }
         }
-      } else if (lessonData.type === 'document') {
-        const documentFile = formData.get('documentFile');
-        if (documentFile) {
-          const uploadResult = await uploadToS3(documentFile, 'lesson-documents');
-          if (uploadResult.success) {
-            lessonData.content = {
-              documentUrl: uploadResult.url,
-              documentKey: uploadResult.key,
-              documentName: documentFile.name,
-              documentSize: documentFile.size,
-              documentType: documentFile.type
-            };
-          }
-        }
+      } catch (formDataError) {
+        console.error('❌ FormData parsing error:', formDataError);
+        return NextResponse.json(
+          { success: false, message: 'Invalid form data', error: formDataError.message },
+          { status: 400 }
+        );
       }
     } else {
       // Handle JSON data
-      const body = await request.json();
-      lessonData = body;
+      try {
+        const body = await request.json();
+        lessonData = body;
+      } catch (jsonError) {
+        console.error('❌ JSON parsing error:', jsonError);
+        return NextResponse.json(
+          { success: false, message: 'Invalid JSON data', error: jsonError.message },
+          { status: 400 }
+        );
+      }
     }
 
     const { title, description, type, content, duration, isFree } = lessonData;

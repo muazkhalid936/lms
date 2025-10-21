@@ -63,62 +63,97 @@ export async function PUT(request, { params }) {
 
     if (contentType?.includes('multipart/form-data')) {
       // Handle file uploads
-      const formData = await request.formData();
-      updateData = {
-        title: formData.get('title') || lesson.title,
-        description: formData.get('description') || lesson.description,
-        type: formData.get('type') || lesson.type,
-        isFree: formData.get('isFree') === 'true',
-        duration: {
-          hours: parseInt(formData.get('hours')) || lesson.duration.hours,
-          minutes: parseInt(formData.get('minutes')) || lesson.duration.minutes,
-          seconds: parseInt(formData.get('seconds')) || lesson.duration.seconds
-        }
-      };
+      try {
+        const formData = await request.formData();
+        updateData = {
+          title: formData.get('title') || lesson.title,
+          description: formData.get('description') || lesson.description,
+          type: formData.get('type') || lesson.type,
+          isFree: formData.get('isFree') === 'true',
+          duration: {
+            hours: parseInt(formData.get('hours')) || lesson.duration.hours,
+            minutes: parseInt(formData.get('minutes')) || lesson.duration.minutes,
+            seconds: parseInt(formData.get('seconds')) || lesson.duration.seconds
+          }
+        };
 
-      // Handle file updates
-      if (updateData.type === 'video') {
-        const videoFile = formData.get('videoFile');
-        if (videoFile) {
-          // Delete old video if exists
-          if (lesson.content.videoKey) {
-            await deleteFromS3(lesson.content.videoKey);
-          }
-          
-          // Use multipart upload for files larger than 10MB
-          const useMultipart = videoFile.size > 10 * 1024 * 1024;
-          const uploadResult = useMultipart 
-            ? await uploadLargeFile(videoFile, 'lesson-videos')
-            : await uploadToS3(videoFile, 'lesson-videos');
+        // Handle file updates
+        if (updateData.type === 'video') {
+          const videoFile = formData.get('videoFile');
+          if (videoFile && videoFile.size > 0) {
+            console.log(`📹 Updating video file: ${videoFile.name}, Size: ${(videoFile.size / (1024 * 1024)).toFixed(2)}MB`);
             
-          if (uploadResult.success) {
-            updateData.content = {
-              ...lesson.content,
-              videoUrl: uploadResult.url,
-              videoKey: uploadResult.key
-            };
+            try {
+              // Delete old video if exists
+              if (lesson.content?.videoKey) {
+                await deleteFromS3(lesson.content.videoKey);
+              }
+              
+              // Always use multipart upload for video files to handle large sizes
+              const uploadResult = await uploadLargeFile(videoFile, 'lesson-videos');
+                
+              if (uploadResult.success) {
+                updateData.content = {
+                  ...lesson.content,
+                  videoUrl: uploadResult.url,
+                  videoKey: uploadResult.key
+                };
+                console.log('✅ Video updated successfully:', uploadResult.url);
+              } else {
+                console.error('❌ Video upload failed:', uploadResult.error);
+                return NextResponse.json(
+                  { success: false, message: 'Video upload failed', error: uploadResult.error },
+                  { status: 500 }
+                );
+              }
+            } catch (uploadError) {
+              console.error('❌ Video upload error:', uploadError);
+              return NextResponse.json(
+                { success: false, message: 'Video upload failed', error: uploadError.message },
+                { status: 500 }
+              );
+            }
+          }
+        } else if (updateData.type === 'document') {
+          const documentFile = formData.get('documentFile');
+          if (documentFile && documentFile.size > 0) {
+            try {
+              // Delete old document if exists
+              if (lesson.content?.documentKey) {
+                await deleteFromS3(lesson.content.documentKey);
+              }
+              
+              const uploadResult = await uploadToS3(documentFile, 'lesson-documents');
+              if (uploadResult.success) {
+                updateData.content = {
+                  ...lesson.content,
+                  documentUrl: uploadResult.url,
+                  documentKey: uploadResult.key,
+                  documentName: documentFile.name,
+                  documentSize: documentFile.size,
+                  documentType: documentFile.type
+                };
+              } else {
+                return NextResponse.json(
+                  { success: false, message: 'Document upload failed', error: uploadResult.error },
+                  { status: 500 }
+                );
+              }
+            } catch (uploadError) {
+              console.error('❌ Document upload error:', uploadError);
+              return NextResponse.json(
+                { success: false, message: 'Document upload failed', error: uploadError.message },
+                { status: 500 }
+              );
+            }
           }
         }
-      } else if (updateData.type === 'document') {
-        const documentFile = formData.get('documentFile');
-        if (documentFile) {
-          // Delete old document if exists
-          if (lesson.content.documentKey) {
-            await deleteFromS3(lesson.content.documentKey);
-          }
-          
-          const uploadResult = await uploadToS3(documentFile, 'lesson-documents');
-          if (uploadResult.success) {
-            updateData.content = {
-              ...lesson.content,
-              documentUrl: uploadResult.url,
-              documentKey: uploadResult.key,
-              documentName: documentFile.name,
-              documentSize: documentFile.size,
-              documentType: documentFile.type
-            };
-          }
-        }
+      } catch (formDataError) {
+        console.error('❌ FormData parsing error:', formDataError);
+        return NextResponse.json(
+          { success: false, message: 'Invalid form data', error: formDataError.message },
+          { status: 400 }
+        );
       }
     } else {
       // Handle JSON data

@@ -8,11 +8,6 @@ const nextConfig = {
       },
     ],
   },
-  api: {
-    bodyParser: {
-      sizeLimit: '2gb',
-    },
-  },
   experimental: {
     serverComponentsExternalPackages: ['@aws-sdk/client-s3'],
   },
