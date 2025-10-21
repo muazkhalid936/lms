@@ -40,18 +40,12 @@ const CourseCarousel = () => {
           const transformedCourses = coursesResponse.data.map((course) => {
             const instructor = course.instructor || {};
 
-            const instructorName =
-              instructor.firstName?.trim() || instructor.lastName?.trim()
-                ? `${instructor.firstName || ""} ${
-                    instructor.lastName || ""
-                  }`.trim()
-                : instructor.userName || "John Doe";
-
             return {
               id: course._id,
               title: course.courseTitle,
-              instructor: instructorName,
-              instructorRole: "Instructor",
+
+              instructor:
+                course.instructor?.firstName || course.instructor.userName,
               avatar: instructor.avatar || "/dashboard/avatar.png",
               price: course.discountPrice || course.coursePrice || 0,
               originalPrice: course.coursePrice || 0,

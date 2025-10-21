@@ -62,7 +62,7 @@ export default function CourseListingPage() {
           id: course._id,
           title: course.courseTitle,
           instructor:
-            course.instructor?.firstName || course.instructor?.userName,
+            course.instructor?.firstName || course.instructor.userName,
           avatar: course.instructor?.avatar || "/dashboard/avatar.png",
           image: course.thumbnail?.url || "/course/thumb1.png",
           price: course.discountPrice || 0,

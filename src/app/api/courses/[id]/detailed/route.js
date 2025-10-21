@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/utils/dbConnect';
-import Course from '@/lib/models/Course';
-import Review from '@/lib/models/Review';
-import Enrollment from '@/lib/models/Enrollment';
-import Quiz from '@/lib/models/Quiz';
-import QuizResult from '@/lib/models/QuizResult';
 import { verifyToken } from '@/lib/utils/auth';
 
 export async function GET(request, { params }) {
   try {
     await dbConnect();
+    
+    // Import models after database connection is established
+    const { default: Course } = await import('@/lib/models/Course');
+    const { default: Review } = await import('@/lib/models/Review');
+    const { default: Enrollment } = await import('@/lib/models/Enrollment');
+    const { default: Quiz } = await import('@/lib/models/Quiz');
+    const { default: QuizResult } = await import('@/lib/models/QuizResult');
+    const { default: FAQ } = await import('@/lib/models/FAQ');
     
     const { id } = await params;
     const { searchParams } = new URL(request.url);

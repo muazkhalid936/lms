@@ -41,8 +41,10 @@ const StudentCoursesPage = () => {
             avatar:
               enrollment.course.instructor?.avatar || "/dashboard/avatar.png",
             instructor: `${
-              enrollment.course.instructor?.firstName || "Unknown"
-            } ${enrollment.course.instructor?.lastName || "Instructor"}`,
+              enrollment.course.instructor?.firstName ||
+              enrollment.course.instructor?.userName ||
+              "Unknown Instructor"
+            }`,
             instructorRole: "Instructor",
             category: "Course",
             rating: enrollment.course.rating?.average || 0,

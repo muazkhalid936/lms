@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/utils/dbConnect';
-import Course from '@/lib/models/Course';
-import Enrollment from '@/lib/models/Enrollment';
-import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/utils/auth';
 
 export async function GET(request) {
   try {
     await dbConnect();
+    
+    // Import models after database connection is established
+    const { default: Course } = await import('@/lib/models/Course');
+    const { default: Enrollment } = await import('@/lib/models/Enrollment');
+    const { default: User } = await import('@/lib/models/User');
 
     // Get authorization token
     const authHeader = request.headers.get('authorization');

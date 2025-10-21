@@ -48,9 +48,8 @@ const AllCourses = () => {
             image:
               course.thumbnail?.url || course.thumbnail || "/course/thumb1.png",
             avatar: course.instructor?.avatar || "/dashboard/avatar.png",
-            instructor: `${course.instructor?.firstName || "Unknown"} ${
-              course.instructor?.lastName || "Instructor"
-            }`,
+            instructor:
+              course.instructor?.firstName || course.instructor.userName,
             instructorRole: "Instructor",
             category: course.courseCategory || "Course",
             rating: course.rating?.average || 0,

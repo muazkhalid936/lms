@@ -7,7 +7,7 @@ import { useRouter, usePathname } from "next/navigation";
 const CourseCard = ({ course, onToggleFavorite, isFavorite }) => {
   const routter = useRouter();
   const pathname = usePathname();
-  console.log(course);
+
 
   const handleToggleFavorite = (e) => {
     e.stopPropagation(); // Prevent card click when clicking heart
