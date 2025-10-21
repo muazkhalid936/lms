@@ -119,13 +119,12 @@ const AllCourses = () => {
               "/course/thumb1.png",
             avatar:
               enrollment.course.instructor?.avatar || "/dashboard/avatar.png",
-            instructor: `${
-              enrollment.course.instructor?.firstName || "Unknown"
-            } ${enrollment.course.instructor?.lastName || "Instructor"}`,
+            instructor:
+              enrollment.instructor?.firstName || enrollment.instructor.userName,
             instructorRole: "Instructor",
             category: "Course",
-            rating: course.rating?.average || 0,
-            reviews: course.rating?.count || 0,
+            rating: enrollment.course.rating?.average || 0,
+            reviews: enrollment.course.rating?.count || 0,
             price:
               Number(
                 enrollment.course.hasDiscount
@@ -192,13 +191,12 @@ const AllCourses = () => {
               "/course/thumb1.png",
             avatar:
               wishlistItem.course.instructor?.avatar || "/dashboard/avatar.png",
-            instructor: `${
-              wishlistItem.course.instructor?.firstName || "Unknown"
-            } ${wishlistItem.course.instructor?.lastName || "Instructor"}`,
+            instructor:
+              wishlistItem.course.instructor?.firstName || wishlistItem.course.instructor.userName,
             instructorRole: "Instructor",
             category: "Course",
-            rating: course.rating?.average || 0,
-            reviews: course.rating?.count || 0,
+            rating: wishlistItem.course.rating?.average || 0,
+            reviews: wishlistItem.course.rating?.count || 0,
             price:
               Number(
                 wishlistItem.course.hasDiscount

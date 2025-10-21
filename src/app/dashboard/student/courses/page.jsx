@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Search, BookOpen, Clock, User, RefreshCw } from "lucide-react";
 import CourseCard from "@/components/landing/CourseCard";
 import EnrollmentService from "@/lib/services/enrollmentService";
+import WishlistService from "@/lib/services/wishlistService";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 
@@ -10,6 +11,8 @@ const StudentCoursesPage = () => {
   const router = useRouter();
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [filteredCourses, setFilteredCourses] = useState([]);
+  const [wishlistCourses, setWishlistCourses] = useState([]);
+  const [wishlistIds, setWishlistIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,8 +32,9 @@ const StudentCoursesPage = () => {
       });
 
       if (result.success) {
+        console.log(result.data?.enrollments)
         if (result.data?.enrollments) {
-          // Transform enrollment data to course format for CourseCard
+
           const courses = result.data.enrollments.map((enrollment) => ({
             id: enrollment.course._id,
             title: enrollment.course.courseTitle,
@@ -87,6 +91,65 @@ const StudentCoursesPage = () => {
     }
   };
 
+  // Fetch wishlist courses
+  const fetchWishlistCourses = async () => {
+    try {
+      const result = await WishlistService.getUserWishlist({
+        limit: 100, // Get all wishlist courses
+      });
+
+      if (result.success) {
+        if (result.data?.wishlist) {
+          // Transform wishlist data to course format
+          const courses = result.data.wishlist.map((wishlistItem) => ({
+            id: wishlistItem.course._id,
+            title: wishlistItem.course.courseTitle,
+            image:
+              wishlistItem.course.thumbnail?.url ||
+              wishlistItem.course.thumbnail ||
+              "/course/thumb1.png",
+            avatar:
+              wishlistItem.course.instructor?.avatar || "/dashboard/avatar.png",
+            instructor:
+              wishlistItem.course.instructor?.firstName || 
+              wishlistItem.course.instructor?.userName ||
+              "Unknown Instructor",
+            instructorRole: "Instructor",
+            category: "Course",
+            rating: wishlistItem.course.rating?.average || 0,
+            reviews: wishlistItem.course.rating?.count || 0,
+            price:
+              Number(
+                wishlistItem.course.hasDiscount
+                  ? wishlistItem.course.discountPrice
+                  : wishlistItem.course.coursePrice
+              ) || 0,
+            originalPrice: Number(wishlistItem.course.coursePrice) || 0,
+            lessons: Number(wishlistItem.course.totalLessons) || 0,
+            duration: "Variable", // This would need to be calculated
+            addedAt: wishlistItem.addedAt,
+          }));
+          setWishlistCourses(courses);
+          setWishlistIds(courses.map((course) => course.id));
+        } else {
+          setWishlistCourses([]);
+          setWishlistIds([]);
+        }
+      } else {
+        setWishlistCourses([]);
+        setWishlistIds([]);
+        // Don't set error for wishlist if user is not authenticated
+        if (result.message && !result.message.includes("Authentication")) {
+          setError(result.message);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching wishlist courses:", error);
+      setWishlistCourses([]);
+      setWishlistIds([]);
+    }
+  };
+
   // Filter courses based on search query
   useEffect(() => {
     let filtered = enrolledCourses;
@@ -106,11 +169,76 @@ const StudentCoursesPage = () => {
   // Load courses on component mount
   useEffect(() => {
     fetchEnrolledCourses();
+    fetchWishlistCourses(); // Also fetch wishlist data
   }, [statusFilter]);
 
   // Handle refresh
   const handleRefresh = () => {
     fetchEnrolledCourses();
+    fetchWishlistCourses(); // Also refresh wishlist data
+  };
+
+  // Handle wishlist toggle
+  const handleToggleFavorite = async (courseId) => {
+    // Check if user is authenticated
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      toast.error("Please log in to manage your wishlist");
+      return;
+    }
+
+    try {
+      if (wishlistIds.includes(courseId)) {
+        // Remove from wishlist
+        const result = await WishlistService.removeFromWishlist(courseId);
+
+        if (result.success) {
+          setWishlistIds((prev) => prev.filter((id) => id !== courseId));
+          setWishlistCourses((prev) =>
+            prev.filter((course) => course.id !== courseId)
+          );
+          toast.success("Course removed from wishlist");
+        } else {
+          console.error("Remove from wishlist failed:", result);
+          toast.error(result.message || "Failed to remove from wishlist");
+        }
+      } else {
+        // Add to wishlist
+        const result = await WishlistService.addToWishlist(courseId);
+
+        if (result.success) {
+          setWishlistIds((prev) => [...prev, courseId]);
+          // Refresh wishlist to get the updated data
+          await fetchWishlistCourses();
+          toast.success("Course added to wishlist");
+        } else {
+          console.error("Add to wishlist failed:", result);
+
+          // Handle specific error cases
+          if (result.message && result.message.includes("duplicate")) {
+            toast.error("Course is already in your wishlist");
+          } else if (
+            result.message &&
+            result.message.includes("authentication")
+          ) {
+            toast.error("Please log in to add courses to wishlist");
+          } else {
+            toast.error(result.message || "Failed to add to wishlist");
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error toggling wishlist:", error);
+
+      // Handle specific error types
+      if (error.message && error.message.includes("duplicate")) {
+        toast.error("Course is already in your wishlist");
+      } else if (error.message && error.message.includes("401")) {
+        toast.error("Please log in to manage your wishlist");
+      } else {
+        toast.error("Failed to update wishlist");
+      }
+    }
   };
 
   // Pagination logic
@@ -298,8 +426,8 @@ const StudentCoursesPage = () => {
               <CourseCard
                 key={course.id}
                 course={course}
-                isFavorite={false} // You can implement wishlist functionality later
-                onToggleFavorite={() => {}} // Placeholder for wishlist toggle
+                isFavorite={wishlistIds.includes(course.id)}
+                onToggleFavorite={() => handleToggleFavorite(course.id)}
               />
             ))}
           </div>
