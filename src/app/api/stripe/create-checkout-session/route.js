@@ -1,27 +1,28 @@
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16',
+  apiVersion: "2023-10-16",
 });
 
 export async function POST(request) {
   try {
-    const { courseId, courseName, coursePrice, discountPrice, isFreeCourse } = await request.json();
+    const { courseId, courseName, coursePrice, discountPrice, isFreeCourse } =
+      await request.json();
 
     // Debug log to see what data we're receiving
-    console.log('Received data:', {
+    console.log("Received data:", {
       courseId,
       courseName,
       coursePrice,
       discountPrice,
-      isFreeCourse
+      isFreeCourse,
     });
 
     // Don't create session for free courses
     if (isFreeCourse) {
       return NextResponse.json(
-        { error: 'Free courses do not require payment' },
+        { error: "Free courses do not require payment" },
         { status: 400 }
       );
     }
@@ -30,31 +31,34 @@ export async function POST(request) {
 
     if (!price || price <= 0) {
       return NextResponse.json(
-        { error: 'Invalid course price' },
+        { error: "Invalid course price" },
         { status: 400 }
       );
     }
 
     // Ensure we have a course name
-    if (!courseName || courseName.trim() === '') {
+    if (!courseName || courseName.trim() === "") {
       return NextResponse.json(
-        { error: 'Course name is required' },
+        { error: "Course name is required" },
         { status: 400 }
       );
     }
 
     // Get the base URL for success and cancel URLs
-    const baseUrl = process.env.APP_URL || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    
-    console.log('Using base URL:', baseUrl); // Debug log
+    const baseUrl =
+      process.env.APP_URL ||
+      process.env.NEXTAUTH_URL ||
+      process.env.NEXT_PUBLIC_BASE_URL;
+
+    console.log("Using base URL:", baseUrl); // Debug log
 
     // Create Checkout Sessions from body params.
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      payment_method_types: ["card"],
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency: "usd",
             product_data: {
               name: courseName.trim(),
               description: `Enrollment for ${courseName.trim()}`,
@@ -64,7 +68,7 @@ export async function POST(request) {
           quantity: 1,
         },
       ],
-      mode: 'payment',
+      mode: "payment",
       success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}&course_id=${courseId}`,
       cancel_url: `${baseUrl}/courses/${courseId}`,
       metadata: {
@@ -76,9 +80,9 @@ export async function POST(request) {
 
     return NextResponse.json({ sessionId: session.id });
   } catch (err) {
-    console.error('Stripe session creation error:', err);
+    console.error("Stripe session creation error:", err);
     return NextResponse.json(
-      { error: 'Error creating payment session' },
+      { error: "Error creating payment session" },
       { status: 500 }
     );
   }

@@ -65,11 +65,13 @@ export async function POST(request) {
         user.payoutsEnabled = !!account.payouts_enabled;
         user.chargesEnabled = !!account.charges_enabled;
         user.stripeDetailsSubmitted = !!account.details_submitted;
-        user.stripeOnboardingComplete = !!(account.details_submitted && account.payouts_enabled);
+        user.stripeOnboardingComplete = !!(
+          account.details_submitted && account.payouts_enabled
+        );
       }
 
       // Generate onboarding link
-      const origin = request.headers.get("origin") || process.env.APP_URL || "http://localhost:3000";
+      const origin = request.headers.get("origin") || process.env.APP_URL;
       const accountLink = await stripe.accountLinks.create({
         account: user.stripeAccountId,
         refresh_url: `${origin}/dashboard/instructor/payouts?refresh=1`,

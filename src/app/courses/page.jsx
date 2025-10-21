@@ -219,7 +219,7 @@ export default function CourseListingPage() {
   return (
     <main>
       <Navbar />
-      <Header />
+      <Header title={"Courses"} />
 
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
