@@ -198,10 +198,25 @@ const awsService = {
 
 export default awsService;
 
+// Helper function to get the base URL for API calls
+const getBaseUrl = () => {
+  // Check if we're on the client side
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  
+  // Server side - use environment variables or default
+  return process.env.NEXT_PUBLIC_BASE_URL || 
+         process.env.APP_URL || 
+         process.env.NEXTAUTH_URL || 
+         'http://localhost:3000';
+};
+
 // Multipart Upload Functions for Large Files
 export const initiateMultipartUpload = async (filename, contentType) => {
   try {
-    const response = await fetch('/api/upload/initiate', {
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/upload/initiate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -219,7 +234,8 @@ export const initiateMultipartUpload = async (filename, contentType) => {
 
 export const getUploadPartUrls = async (uploadId, partNumbers, filename) => {
   try {
-    const response = await fetch('/api/upload/parts', {
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/upload/parts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -237,7 +253,8 @@ export const getUploadPartUrls = async (uploadId, partNumbers, filename) => {
 
 export const completeMultipartUpload = async (uploadId, filename, parts) => {
   try {
-    const response = await fetch('/api/upload/complete', {
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/upload/complete`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -255,7 +272,8 @@ export const completeMultipartUpload = async (uploadId, filename, parts) => {
 
 export const abortMultipartUpload = async (uploadId, filename) => {
   try {
-    const response = await fetch('/api/upload/abort', {
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/upload/abort`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
