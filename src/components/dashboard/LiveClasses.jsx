@@ -1,9 +1,13 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import UpcomingClasses from "./home/UpcomingClasses";
 import toast from "react-hot-toast";
+import useAuthStore from "@/store/authStore";
 
 const LiveClasses = () => {
+  const { user } = useAuthStore();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("upcoming");
   const [liveClasses, setLiveClasses] = useState([]);
   const [browseClasses, setBrowseClasses] = useState([]);
@@ -11,7 +15,6 @@ const LiveClasses = () => {
   const [browseLoading, setBrowseLoading] = useState(false);
   const [error, setError] = useState(null);
   const [browseError, setBrowseError] = useState(null);
-  const [registeringClassId, setRegisteringClassId] = useState(null);
 
   // Fetch live classes from API
   const fetchLiveClasses = async () => {
@@ -75,7 +78,7 @@ const LiveClasses = () => {
     if (activeTab === "browse") {
       fetchBrowseClasses();
     }
-  }, [activeTab]);
+  }, [activeTab, user]);
 
   // Separate classes into upcoming and past
   const upcomingClasses = liveClasses.filter((liveClass) => {
@@ -113,6 +116,7 @@ const LiveClasses = () => {
           : "Unknown Instructor",
         isRegistered: liveClass.isRegistered,
         canJoin: liveClass.canJoin,
+        isLive: liveClass.status === "live",
         zoomJoinUrl: liveClass.zoomJoinUrl,
         zoomPassword: liveClass.zoomPassword,
         status: liveClass.status,
@@ -123,47 +127,19 @@ const LiveClasses = () => {
 
   const handleJoinClass = async (classId) => {
     try {
-      const classToJoin = liveClasses.find((cls) => cls.id === classId);
+      const classToJoin = [...upcomingClasses, ...pastClasses].find(
+        (cls) => cls._id === classId
+      );
+      
       if (classToJoin && classToJoin.zoomJoinUrl) {
-        // Open Zoom meeting in new tab
-        window.open(classToJoin.zoomJoinUrl, "_blank");
+        // Navigate to the dedicated meeting page
+        router.push(`/meeting/${classId}`);
       } else {
         toast.error("Join link is not available for this class.");
       }
     } catch (error) {
       console.error("Error joining class:", error);
       toast.error("Failed to join class. Please try again.");
-    }
-  };
-
-  const handleRegisterForClass = async (classId) => {
-    try {
-      setRegisteringClassId(classId);
-      const response = await fetch(`/api/live-classes/${classId}/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        toast.success("Successfully registered for the class!");
-        // Refresh the live classes to update registration status
-        fetchLiveClasses();
-        // Also refresh browse classes if we're on that tab
-        if (activeTab === "browse") {
-          fetchBrowseClasses();
-        }
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || "Failed to register for class.");
-      }
-    } catch (error) {
-      console.error("Error registering for class:", error);
-      toast.error("Failed to register for class. Please try again.");
-    } finally {
-      setRegisteringClassId(null);
     }
   };
 
@@ -233,8 +209,6 @@ const LiveClasses = () => {
             isJoin={true}
             tableHeading="My Upcoming Classes"
             onJoinClass={handleJoinClass}
-            onRegisterClass={handleRegisterForClass}
-            registeringClassId={registeringClassId}
           />
         )}
 
@@ -248,10 +222,6 @@ const LiveClasses = () => {
           />
         )}
       </div>
-
-    
-
-      
     </div>
   );
 };

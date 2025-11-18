@@ -9,6 +9,10 @@ import { verifyToken } from '@/lib/utils/auth';
 // Platform fee configuration
 const PLATFORM_FEE_PERCENTAGE = 0.20; // 20% platform fee
 
+// Cache configuration
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const statsCache = new Map();
+
 export async function GET(request) {
   try {
     await dbConnect();
@@ -53,55 +57,98 @@ export async function GET(request) {
       );
     }
 
-    // Get all courses by this instructor
-    const instructorCourses = await Course.find({ 
-      instructor: user._id 
-    }).select('_id courseTitle isFreeCourse coursePrice hasDiscount discountPrice');
-
-    const courseIds = instructorCourses.map(course => course._id);
-
-    // Get total number of courses
-    const totalCourses = instructorCourses.length;
-
-    // Get all enrollments for instructor's courses
-    const enrollments = await Enrollment.find({
-      course: { $in: courseIds },
-      status: { $in: ['active', 'completed'] }
-    }).populate('course', 'isFreeCourse coursePrice hasDiscount discountPrice');
-
-    // Calculate total students (unique enrollments)
-    const totalStudents = enrollments.length;
-
-    // Calculate total earnings using the Earnings model for more accurate tracking
-    const earningsStats = await Earnings.getInstructorTotalEarnings(user._id);
-    const totalEarnings = earningsStats.totalEarnings;
-
-    // Get legacy earnings calculation for backwards compatibility (with platform fee deduction)
-    let legacyTotalEarnings = 0;
+    // Check cache first
+    const cacheKey = `instructor_stats_${user._id}`;
+    const cachedData = statsCache.get(cacheKey);
     
-    enrollments.forEach(enrollment => {
-      if (enrollment.paymentDetails && enrollment.paymentDetails.paymentStatus === 'completed') {
-        const grossAmount = enrollment.paymentDetails.amount || 0;
-        const netAmount = grossAmount * (1 - PLATFORM_FEE_PERCENTAGE);
-        legacyTotalEarnings += netAmount;
-      } else if (enrollment.course && !enrollment.course.isFreeCourse) {
-        // For completed enrollments without payment details, use course price with platform fee deduction
-        const coursePrice = enrollment.course.hasDiscount && enrollment.course.discountPrice 
-          ? enrollment.course.discountPrice 
-          : enrollment.course.coursePrice;
-        const netAmount = (coursePrice || 0) * (1 - PLATFORM_FEE_PERCENTAGE);
-        legacyTotalEarnings += netAmount;
+    if (cachedData && (Date.now() - cachedData.timestamp) < CACHE_DURATION) {
+      return NextResponse.json({
+        success: true,
+        data: cachedData.data,
+        cached: true
+      });
+    }
+
+    // Use MongoDB aggregation for efficient data retrieval
+    const statsAggregation = await Course.aggregate([
+      // Match instructor's courses
+      { $match: { instructor: user._id } },
+      
+      // Lookup enrollments for each course
+      {
+        $lookup: {
+          from: 'enrollments',
+          localField: '_id',
+          foreignField: 'course',
+          as: 'enrollments',
+          pipeline: [
+            { $match: { status: { $in: ['active', 'completed'] } } }
+          ]
+        }
+      },
+      
+      // Group to calculate totals
+      {
+        $group: {
+          _id: null,
+          totalCourses: { $sum: 1 },
+          totalStudents: { $sum: { $size: '$enrollments' } },
+          courses: {
+            $push: {
+              courseId: '$_id',
+              courseTitle: '$courseTitle',
+              isFreeCourse: '$isFreeCourse',
+              coursePrice: '$coursePrice',
+              hasDiscount: '$hasDiscount',
+              discountPrice: '$discountPrice',
+              enrollmentCount: { $size: '$enrollments' },
+              enrollments: '$enrollments'
+            }
+          }
+        }
       }
-    });
+    ]);
 
-    // Use the higher of the two calculations (earnings model should be more accurate)
-    const finalTotalEarnings = Math.max(totalEarnings, legacyTotalEarnings);
+    const stats = statsAggregation[0] || {
+      totalCourses: 0,
+      totalStudents: 0,
+      courses: []
+    };
 
-    // Calculate recent earnings using Earnings model
+    // Get earnings data efficiently using aggregation
+    const earningsAggregation = await Earnings.aggregate([
+      { $match: { instructor: user._id, status: 'completed' } },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: '$instructorEarnings' },
+          totalTransactions: { $sum: 1 },
+          pendingPayout: {
+            $sum: {
+              $cond: [{ $eq: ['$payoutStatus', 'pending'] }, '$instructorEarnings', 0]
+            }
+          },
+          processedPayout: {
+            $sum: {
+              $cond: [{ $eq: ['$payoutStatus', 'processed'] }, '$instructorEarnings', 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    const earningsData = earningsAggregation[0] || {
+      totalEarnings: 0,
+      totalTransactions: 0,
+      pendingPayout: 0,
+      processedPayout: 0
+    };
+
+    // Get recent earnings (last 30 days) efficiently
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const recentEarningsFromModel = await Earnings.aggregate([
+    const recentEarningsAggregation = await Earnings.aggregate([
       {
         $match: {
           instructor: user._id,
@@ -112,97 +159,125 @@ export async function GET(request) {
       {
         $group: {
           _id: null,
-          totalEarnings: { $sum: '$instructorEarnings' },
-          totalTransactions: { $sum: 1 }
+          recentEarnings: { $sum: '$instructorEarnings' },
+          recentTransactions: { $sum: 1 }
         }
       }
     ]);
 
-    const recentEarnings = recentEarningsFromModel[0]?.totalEarnings || 0;
-    const recentTransactions = recentEarningsFromModel[0]?.totalTransactions || 0;
+    const recentData = recentEarningsAggregation[0] || {
+      recentEarnings: 0,
+      recentTransactions: 0
+    };
 
-    // Get recent enrollments for backwards compatibility
-    const recentEnrollments = await Enrollment.find({
-      course: { $in: courseIds },
+    // Get recent enrollments count efficiently
+    const recentEnrollmentsCount = await Enrollment.countDocuments({
+      course: { $in: stats.courses.map(c => c.courseId) },
       enrolledAt: { $gte: thirtyDaysAgo },
       status: { $in: ['active', 'completed'] }
-    }).populate('course', 'isFreeCourse coursePrice hasDiscount discountPrice');
-
-    // Calculate legacy recent earnings (with platform fee deduction)
-    let legacyRecentEarnings = 0;
-    recentEnrollments.forEach(enrollment => {
-      if (enrollment.paymentDetails && enrollment.paymentDetails.paymentStatus === 'completed') {
-        const grossAmount = enrollment.paymentDetails.amount || 0;
-        const netAmount = grossAmount * (1 - PLATFORM_FEE_PERCENTAGE);
-        legacyRecentEarnings += netAmount;
-      } else if (enrollment.course && !enrollment.course.isFreeCourse) {
-        const coursePrice = enrollment.course.hasDiscount && enrollment.course.discountPrice 
-          ? enrollment.course.discountPrice 
-          : enrollment.course.coursePrice;
-        const netAmount = (coursePrice || 0) * (1 - PLATFORM_FEE_PERCENTAGE);
-        legacyRecentEarnings += netAmount;
-      }
     });
 
-    const finalRecentEarnings = Math.max(recentEarnings, legacyRecentEarnings);
+    // Calculate course-wise statistics efficiently
+    const courseStats = stats.courses.map(course => {
+      const coursePrice = course.isFreeCourse ? 0 : 
+        (course.hasDiscount && course.discountPrice ? course.discountPrice : course.coursePrice);
+      
+      // Calculate earnings for this course
+      let courseEarnings = 0;
+      if (!course.isFreeCourse) {
+        courseEarnings = course.enrollmentCount * coursePrice * (1 - PLATFORM_FEE_PERCENTAGE);
+      }
 
-    // Get course-wise statistics
-    const courseStats = await Promise.all(
-      instructorCourses.map(async (course) => {
-        const courseEnrollments = await Enrollment.countDocuments({
-          course: course._id,
-          status: { $in: ['active', 'completed'] }
-        });
+      return {
+        courseId: course.courseId,
+        courseTitle: course.courseTitle,
+        totalStudents: course.enrollmentCount,
+        earnings: Math.round(courseEarnings * 100) / 100,
+        price: coursePrice
+      };
+    });
 
-        const courseEarnings = enrollments
-          .filter(enrollment => enrollment.course._id.toString() === course._id.toString())
-          .reduce((total, enrollment) => {
-            if (enrollment.paymentDetails && enrollment.paymentDetails.paymentStatus === 'completed') {
-              const grossAmount = enrollment.paymentDetails.amount || 0;
-              const netAmount = grossAmount * (1 - PLATFORM_FEE_PERCENTAGE);
-              return total + netAmount;
-            } else if (!course.isFreeCourse) {
-              const coursePrice = course.hasDiscount && course.discountPrice 
-                ? course.discountPrice 
-                : course.coursePrice;
-              const netAmount = (coursePrice || 0) * (1 - PLATFORM_FEE_PERCENTAGE);
-              return total + netAmount;
-            }
-            return total;
-          }, 0);
+    // Get monthly earnings efficiently
+    const monthlyEarnings = await Earnings.aggregate([
+      {
+        $match: {
+          instructor: user._id,
+          status: 'completed',
+          createdAt: { $gte: new Date(new Date().setMonth(new Date().getMonth() - 12)) }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          earnings: { $sum: '$instructorEarnings' },
+          enrollments: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { '_id.year': 1, '_id.month': 1 }
+      },
+      {
+        $project: {
+          month: {
+            $concat: [
+              {
+                $arrayElemAt: [
+                  ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                  { $subtract: ['$_id.month', 1] }
+                ]
+              },
+              ' ',
+              { $toString: '$_id.year' }
+            ]
+          },
+          earnings: 1,
+          enrollments: 1
+        }
+      }
+    ]);
 
-        return {
-          courseId: course._id,
-          courseTitle: course.courseTitle,
-          totalStudents: courseEnrollments,
-          earnings: courseEarnings,
-          price: course.isFreeCourse ? 0 : (course.hasDiscount && course.discountPrice ? course.discountPrice : course.coursePrice)
-        };
-      })
-    );
+    // Prepare response data
+    const responseData = {
+      totalStudents: stats.totalStudents,
+      totalCourses: stats.totalCourses,
+      totalEarnings: Math.round(earningsData.totalEarnings * 100) / 100,
+      recentEarnings: Math.round(recentData.recentEarnings * 100) / 100,
+      recentEnrollments: recentEnrollmentsCount,
+      courseStats,
+      monthlyEarnings,
+      period: '30 days',
+      earningsBreakdown: {
+        totalEarnings: Math.round(earningsData.totalEarnings * 100) / 100,
+        totalTransactions: earningsData.totalTransactions,
+        pendingPayout: Math.round(earningsData.pendingPayout * 100) / 100,
+        processedPayout: Math.round(earningsData.processedPayout * 100) / 100,
+        platformFeeDeducted: true
+      }
+    };
 
-    // Calculate monthly earnings for the chart using Earnings model
-    const monthlyEarnings = await Earnings.getMonthlyEarnings(user._id, 12);
+    // Cache the result
+    statsCache.set(cacheKey, {
+      data: responseData,
+      timestamp: Date.now()
+    });
+
+    // Clean up old cache entries periodically
+    if (statsCache.size > 100) {
+      const now = Date.now();
+      for (const [key, value] of statsCache.entries()) {
+        if (now - value.timestamp > CACHE_DURATION) {
+          statsCache.delete(key);
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      data: {
-        totalStudents,
-        totalCourses,
-        totalEarnings: Math.round(finalTotalEarnings * 100) / 100, // Round to 2 decimal places
-        recentEarnings: Math.round(finalRecentEarnings * 100) / 100,
-        recentEnrollments: recentEnrollments.length,
-        courseStats,
-        monthlyEarnings,
-        period: '30 days',
-        earningsBreakdown: {
-          totalEarnings: Math.round(finalTotalEarnings * 100) / 100,
-          totalTransactions: earningsStats.totalTransactions,
-          pendingPayout: earningsStats.pendingPayout,
-          processedPayout: earningsStats.processedPayout,
-          platformFeeDeducted: true
-        }
-      }
+      data: responseData
     });
 
   } catch (error) {

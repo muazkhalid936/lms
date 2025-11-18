@@ -35,37 +35,30 @@ const useAuthStore = create(
 
       clearError: () => set({ error: null }),
 
-      // Fetch user data
+      // Fetch user data using single combined endpoint
       fetchUser: async () => {
         set({ loading: true, error: null });
         
         try {
-          const tokenResponse = await fetch("/api/auth/verify-token");
-          const tokenData = await tokenResponse.json();
+          // Use the new combined endpoint that handles both token verification and user fetching
+          const response = await fetch("/api/auth/user", {
+            method: "GET",
+            credentials: 'include', // Include cookies in the request
+          });
 
-          if (tokenData.success && tokenData.userId) {
-            const profileResponse = await fetch("/api/profile/get", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ userId: tokenData.userId }),
+          const data = await response.json();
+
+          if (data.success && data.user) {
+            set({ 
+              user: data.user, 
+              isAuthenticated: true,
+              loading: false,
+              error: null 
             });
-
-            const profileData = await profileResponse.json();
-
-            if (profileData.success && profileData.user) {
-              set({ 
-                user: profileData.user, 
-                isAuthenticated: true,
-                loading: false,
-                error: null 
-              });
-              return profileData.user;
-            }
+            return data.user;
           }
 
-          throw new Error("Failed to fetch user");
+          throw new Error(data.message || "Failed to fetch user");
         } catch (error) {
           set({ 
             user: null, 
@@ -138,6 +131,7 @@ const useAuthStore = create(
             // Set cookie for server-side access
             if (typeof document !== 'undefined') {
               document.cookie = `userId=${data.user.userId}; path=/;`;
+              document.cookie = `token=${data.token}; path=/; max-age=604800; sameSite=lax;`;
             }
 
             // Fetch complete user profile

@@ -51,7 +51,7 @@ const SideComponent = ({ isProfilePage, title, desc, sideData }) => {
     <div
       className={`flex ${
         isProfilePage != true ? "items-start " : "items-end  "
-      } justify-center rounded-3xl p-5 overflow-hidden  mr-2 h-[95vh] mt-[20px] w-full px-[40px]  hidden lg:flex bg-cover bg-center `}
+      } justify-center rounded-3xl p-5 overflow-hidden   h-[95vh]   w-full px-[40px]  hidden lg:flex bg-cover bg-center `}
       style={{
         backgroundImage: sideData?.backgroundImage
           ? `url('${getStrapiImageUrl(sideData.backgroundImage)}')`

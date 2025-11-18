@@ -34,6 +34,7 @@ import RichTextEditor from "@/components/ui/RichTextEditor";
 import { useCourse } from "@/contexts/CourseContext";
 import { Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
+import useFileUpload from "@/hooks/useFileUpload";
 
 const CurriculumComponent = ({ onNext }) => {
   const {
@@ -52,7 +53,8 @@ const CurriculumComponent = ({ onNext }) => {
     deleteQuiz,
   } = useCourse();
 
-  console.log("chapters", chapters);
+  // File upload hook
+  const { uploadFile, uploadProgress, isUploading, uploadedFileData, resetUpload } = useFileUpload();
 
   const [expandedSections, setExpandedSections] = useState({});
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
@@ -77,7 +79,6 @@ const CurriculumComponent = ({ onNext }) => {
 
   const [addingSection, setAddingSection] = useState(false);
 
-  // Live class form state
   const [liveClassTitle, setLiveClassTitle] = useState("");
   const [liveClassDescription, setLiveClassDescription] = useState("");
   const [liveClassScheduledDate, setLiveClassScheduledDate] = useState("");
@@ -110,7 +111,6 @@ const CurriculumComponent = ({ onNext }) => {
   const [quizShowResults, setQuizShowResults] = useState(true);
   const [quizShowCorrectAnswers, setQuizShowCorrectAnswers] = useState(true);
   const [quizIsFree, setQuizIsFree] = useState(false);
-  // Add these state variables at the top of your component
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -175,9 +175,8 @@ const CurriculumComponent = ({ onNext }) => {
             )}
           </div>
           <span
-            className={`${
-              lecture.isPublished ? "text-gray-900" : "text-gray-700"
-            }`}
+            className={`${lecture.isPublished ? "text-gray-900" : "text-gray-700"
+              }`}
           >
             {lecture.title}
           </span>
@@ -220,19 +219,13 @@ const CurriculumComponent = ({ onNext }) => {
       return;
     }
 
-    // Directly generate quiz for all videos without showing selector
     confirmVideoSelection();
   };
-
-  // Add these state variables at the top of your component
-
-  // Remove showVideoSelector and selectedVideoLesson states since we don't need them anymore
 
   const confirmVideoSelection = async () => {
     setIsGeneratingQuiz(true);
 
     try {
-      // Get all video lessons from all chapters
       const allVideoLessons = chapters?.flatMap(
         (chapter) =>
           chapter.lessons?.filter(
@@ -244,34 +237,26 @@ const CurriculumComponent = ({ onNext }) => {
         throw new Error("No video lessons found");
       }
 
-      console.log(
-        `Generating quiz for ${allVideoLessons.length} video lessons`
-      );
-
-      // For now, we'll use the first video for quiz generation
-      // You can modify this to process multiple videos if needed
       const firstVideoLesson = allVideoLessons[0];
+      const videoUrl = `/api/files/${encodeURIComponent(firstVideoLesson.content.videoKey)}`;
 
-      // Fetch the video file using the videoKey from your files API
-      const videoUrl = `/api/files/${encodeURIComponent(
-        firstVideoLesson.content.videoKey
-      )}`;
-
-      // Create form data for the API request
-      const formData = new FormData();
-
-      // First, we need to get the video file as a blob
       const videoResponse = await fetch(videoUrl);
+
       if (!videoResponse.ok) {
         throw new Error("Failed to fetch video file");
       }
 
-      const videoBlob = await videoResponse.blob();
-      formData.append("video", videoBlob, `${firstVideoLesson.title}.mp4`);
+      let finalVideoUrl = videoUrl;
+      if (videoResponse.redirected) {
+        finalVideoUrl = videoResponse.url;
+      }
+
+      const formData = new FormData();
+      formData.append("videoUrl", finalVideoUrl);
+      formData.append("filename", `${firstVideoLesson.title}.mp4`);
       formData.append("sectionId", firstVideoLesson.chapter);
       formData.append("courseId", firstVideoLesson.course);
 
-      // Call your AI quiz generation API
       const quizResponse = await fetch("/api/quiz-test", {
         method: "POST",
         body: formData,
@@ -285,12 +270,11 @@ const CurriculumComponent = ({ onNext }) => {
       const result = await quizResponse.json();
 
       if (result.success) {
-        // Populate the form with the generated quiz
         const generatedQuiz = result.quiz;
         setQuizTitle(generatedQuiz.title || `Course Quiz - All Lessons`);
         setQuizDescription(
           generatedQuiz.description ||
-            `AI-generated quiz based on course video content`
+          `AI-generated quiz based on course video content`
         );
         setQuizPassingMarks(generatedQuiz.passingMarks || 60);
         setQuizMaxAttempts(generatedQuiz.maxAttempts || 3);
@@ -299,7 +283,7 @@ const CurriculumComponent = ({ onNext }) => {
         );
         setQuizInstructions(
           generatedQuiz.instructions ||
-            "This quiz was automatically generated from the course video content."
+          "This quiz was automatically generated from the course video content."
         );
         setQuizAllowRetake(generatedQuiz.allowRetake ?? true);
         setQuizShuffleQuestions(generatedQuiz.shuffleQuestions ?? false);
@@ -309,22 +293,18 @@ const CurriculumComponent = ({ onNext }) => {
         setQuizIsFree(generatedQuiz.isFree ?? false);
         setQuizQuestions(generatedQuiz.questions || []);
 
-        // Show success message
-        alert(
+        toast.success(
           `Quiz generated successfully from ${allVideoLessons.length} video lessons! Please review the questions before saving.`
         );
       }
     } catch (error) {
       console.error("Error generating quiz:", error);
-      alert(`Failed to generate quiz: ${error.message}`);
+      toast.error(`Failed to generate quiz: ${error.message}`);
     } finally {
       setIsGeneratingQuiz(false);
     }
   };
 
-  // Don't forget to import Sparkles icon
-
-  // Handle drag end for reordering lectures
   const handleDragEnd = async (event) => {
     const { active, over } = event;
 
@@ -332,7 +312,6 @@ const CurriculumComponent = ({ onNext }) => {
       return;
     }
 
-    // Find which section this drag operation belongs to
     let targetSection = null;
     let currentLessons = [];
 
@@ -434,6 +413,7 @@ const CurriculumComponent = ({ onNext }) => {
     setShowLectureFormModal(false);
     setSelectedLectureType(null);
     setCurrentSectionId(null);
+    resetUpload(); // Reset upload hook state
   };
 
   const resetLiveClassForm = () => {
@@ -557,8 +537,8 @@ const CurriculumComponent = ({ onNext }) => {
         const formattedDuration = `${hours
           .toString()
           .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-          .toString()
-          .padStart(2, "0")}`;
+            .toString()
+            .padStart(2, "0")}`;
         resolve(formattedDuration);
       };
 
@@ -804,40 +784,56 @@ const CurriculumComponent = ({ onNext }) => {
           selectedLectureType === "prerecorded"
             ? "" // No summary needed for prerecorded videos
             : typeof lectureSummary === "object" && lectureSummary?.html
-            ? lectureSummary.html
-            : typeof lectureSummary === "string"
-            ? lectureSummary
-            : "";
+              ? lectureSummary.html
+              : typeof lectureSummary === "string"
+                ? lectureSummary
+                : "";
 
         if (selectedLectureType === "prerecorded" && uploadedFile) {
-          // Create FormData for file upload
-          const formData = new FormData();
-          formData.append("title", lectureTitle.trim());
-          formData.append(
-            "description",
-            `Video lecture: ${lectureTitle.trim()}`
-          ); // Auto-generated description
-          formData.append("type", "video");
-          formData.append("hours", duration.hours.toString());
-          formData.append("minutes", duration.minutes.toString());
-          formData.append("seconds", duration.seconds.toString());
-          formData.append("isFree", "false");
-          formData.append("videoFile", uploadedFile);
+          // Upload video file first with progress tracking
+          const uploadResult = await uploadFile(uploadedFile, 'lesson-videos', true);
+          
+          if (!uploadResult) {
+            throw new Error('Video upload failed');
+          }
 
-          lessonData = formData;
+          // Create lesson data with uploaded video info
+          lessonData = {
+            title: lectureTitle.trim(),
+            description: `Video lecture: ${lectureTitle.trim()}`,
+            type: "video",
+            duration: duration,
+            isFree: false,
+            content: {
+              videoUrl: uploadResult.url,
+              videoKey: uploadResult.key
+            }
+          };
+
         } else if (selectedLectureType === "document" && uploadedFile) {
-          // Create FormData for document upload
-          const formData = new FormData();
-          formData.append("title", lectureTitle.trim());
-          formData.append("description", descriptionText);
-          formData.append("type", "document");
-          formData.append("hours", duration.hours.toString());
-          formData.append("minutes", duration.minutes.toString());
-          formData.append("seconds", duration.seconds.toString());
-          formData.append("isFree", "false");
-          formData.append("documentFile", uploadedFile);
+          // Upload document file first with progress tracking
+          const uploadResult = await uploadFile(uploadedFile, 'lesson-documents', uploadedFile.size > 10 * 1024 * 1024);
+          
+          if (!uploadResult) {
+            throw new Error('Document upload failed');
+          }
 
-          lessonData = formData;
+          // Create lesson data with uploaded document info
+          lessonData = {
+            title: lectureTitle.trim(),
+            description: descriptionText,
+            type: "document",
+            duration: duration,
+            isFree: false,
+            content: {
+              documentUrl: uploadResult.url,
+              documentKey: uploadResult.key,
+              documentName: uploadedFile.name,
+              documentSize: uploadedFile.size,
+              documentType: uploadedFile.type
+            }
+          };
+
         } else {
           // For YouTube and text lessons
           lessonData = {
@@ -860,9 +856,11 @@ const CurriculumComponent = ({ onNext }) => {
         );
         if (result) {
           resetLectureForm();
+          resetUpload(); // Reset upload state
         }
       } catch (error) {
-        toast.error("Failed to create lesson");
+        console.error("Lesson creation error:", error);
+        toast.error(error.message || "Failed to create lesson");
       } finally {
         setIsFileUploading(false);
       }
@@ -1102,9 +1100,8 @@ const CurriculumComponent = ({ onNext }) => {
               <button
                 onClick={handleAddSection}
                 disabled={!sectionName.trim() || addingSection}
-                className={`${
-                  addingSection ? "bg-indigo-400" : "bg-indigo-600"
-                } cursor-pointer hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium px-6 py-2 rounded-lg transition-colors`}
+                className={`${addingSection ? "bg-indigo-400" : "bg-indigo-600"
+                  } cursor-pointer hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium px-6 py-2 rounded-lg transition-colors`}
               >
                 {addingSection ? "Adding Section..." : "Add Section"}
               </button>
@@ -1200,16 +1197,15 @@ const CurriculumComponent = ({ onNext }) => {
                       id="video-upload"
                       accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska"
                       onChange={handleFileUpload}
-                      disabled={isFileUploading}
+                      disabled={isFileUploading || isUploading}
                       className="hidden"
                     />
                     <label
                       htmlFor="video-upload"
-                      className={`border-2 border-gray-200 rounded-lg p-12 text-center bg-gray-50 block cursor-pointer hover:bg-gray-100 transition-colors ${
-                        isFileUploading || isExtractingDuration
+                      className={`border-2 border-gray-200 rounded-lg p-12 text-center bg-gray-50 block cursor-pointer hover:bg-gray-100 transition-colors ${isFileUploading || isExtractingDuration || isUploading
                           ? "opacity-75 cursor-not-allowed"
                           : ""
-                      }`}
+                        }`}
                     >
                       <div className="flex justify-center mb-4">
                         <div className="w-16 h-16 bg-[var(--rose-500)] rounded-lg flex items-center justify-center">
@@ -1219,16 +1215,34 @@ const CurriculumComponent = ({ onNext }) => {
                       <p className="text-lg font-medium text-gray-900 mb-2">
                         {isExtractingDuration
                           ? "Extracting duration..."
-                          : isFileUploading
-                          ? "Processing..."
-                          : uploadedFile
-                          ? uploadedFile.name
-                          : "Upload Video"}
+                          : isUploading
+                            ? `Uploading... ${uploadProgress}%`
+                            : isFileUploading
+                            ? "Processing..."
+                            : uploadedFile
+                              ? uploadedFile.name
+                              : "Upload Video"}
                       </p>
                       <p className="text-gray-500 text-sm">
                         MP4, MOV, AVI,and MKV formats, up to 2 GB
                       </p>
                     </label>
+                    
+                    {/* Upload Progress Bar */}
+                    {isUploading && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">Uploading video...</span>
+                          <span className="text-sm text-gray-500">{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div
+                            className="bg-red-400 h-3 rounded-full transition-all duration-300"
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -1249,11 +1263,10 @@ const CurriculumComponent = ({ onNext }) => {
                       disabled={true}
                       onChange={(e) => setLectureDuration(e.target.value)}
                       placeholder="00:00:00"
-                      className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors ${
-                        selectedLectureType === "youtube"
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors ${selectedLectureType === "youtube"
                           ? "text-gray-500 bg-gray-50"
                           : "text-gray-400"
-                      }`}
+                        }`}
                       title={
                         selectedLectureType === "youtube"
                           ? "Duration is auto-fetched from YouTube. You can still edit if needed."
@@ -1335,15 +1348,14 @@ const CurriculumComponent = ({ onNext }) => {
     text/plain
   "
                     onChange={handleFileUpload}
-                    disabled={isFileUploading}
+                    disabled={isFileUploading || isUploading}
                     className="hidden"
                   />
 
                   <label
                     htmlFor="document-upload"
-                    className={`border-2 border-gray-200 rounded-lg p-12 text-center bg-gray-50 block cursor-pointer hover:bg-gray-100 transition-colors ${
-                      isFileUploading ? "opacity-75 cursor-not-allowed" : ""
-                    }`}
+                    className={`border-2 border-gray-200 rounded-lg p-12 text-center bg-gray-50 block cursor-pointer hover:bg-gray-100 transition-colors ${isFileUploading || isUploading ? "opacity-75 cursor-not-allowed" : ""
+                      }`}
                   >
                     <div className="flex justify-center mb-4">
                       <div className="w-16 h-16 bg-[var(--rose-500)] rounded-lg flex items-center justify-center">
@@ -1351,16 +1363,34 @@ const CurriculumComponent = ({ onNext }) => {
                       </div>
                     </div>
                     <p className="text-lg font-medium text-gray-900 mb-2">
-                      {isFileUploading
+                      {isUploading
+                        ? `Uploading... ${uploadProgress}%`
+                        : isFileUploading
                         ? "Processing..."
                         : uploadedFile
-                        ? uploadedFile.name
-                        : "Upload Document"}
+                          ? uploadedFile.name
+                          : "Upload Document"}
                     </p>
                     <p className="text-gray-500 text-sm">
                       JPEG, PNG, GIF,and WebP formats, up to 10 MB
                     </p>
                   </label>
+                  
+                  {/* Upload Progress Bar */}
+                  {isUploading && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">Uploading document...</span>
+                        <span className="text-sm text-gray-500">{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div
+                          className="bg-pink-400 h-3 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1392,15 +1422,18 @@ const CurriculumComponent = ({ onNext }) => {
                   disabled={
                     !lectureTitle.trim() ||
                     isFileUploading ||
-                    isExtractingDuration
+                    isExtractingDuration ||
+                    isUploading
                   }
                   className="bg-[var(--rose-500)] cursor-pointer hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium px-8 py-3 rounded-full transition-colors"
                 >
                   {isExtractingDuration
                     ? "Extracting duration..."
-                    : isFileUploading
-                    ? "Uploading..."
-                    : "Upload"}
+                    : isUploading
+                      ? `Uploading... ${uploadProgress}%`
+                      : isFileUploading
+                      ? "Processing..."
+                      : "Upload"}
                 </button>
               </div>
             </div>
@@ -1807,8 +1840,8 @@ const CurriculumComponent = ({ onNext }) => {
                         ? "Updating Quiz..."
                         : "Creating Quiz..."
                       : editingQuizId
-                      ? "Update Quiz"
-                      : "Create Quiz"}
+                        ? "Update Quiz"
+                        : "Create Quiz"}
                   </button>
                 </button>
               </div>
@@ -2009,9 +2042,8 @@ const CurriculumComponent = ({ onNext }) => {
                         />
                       </div>
                       <span
-                        className={`${
-                          quiz.isPublished ? "text-gray-900" : "text-gray-700"
-                        }`}
+                        className={`${quiz.isPublished ? "text-gray-900" : "text-gray-700"
+                          }`}
                       >
                         {quiz.title} - {quiz.questions?.length || 0} questions
                       </span>

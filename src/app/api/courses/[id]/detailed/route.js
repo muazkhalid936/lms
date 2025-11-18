@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/utils/dbConnect';
-import { verifyToken } from '@/lib/utils/auth';
+import AuthService from '@/lib/services/authService';
 
 export async function GET(request, { params }) {
   try {
@@ -13,6 +13,7 @@ export async function GET(request, { params }) {
     const { default: Quiz } = await import('@/lib/models/Quiz');
     const { default: QuizResult } = await import('@/lib/models/QuizResult');
     const { default: FAQ } = await import('@/lib/models/FAQ');
+    const { default: User } = await import('@/lib/models/User'); // Import User model to register the schema
     
     const { id } = await params;
     const { searchParams } = new URL(request.url);
@@ -22,22 +23,12 @@ export async function GET(request, { params }) {
     const reviewsPage = parseInt(searchParams.get('reviewsPage')) || 1;
     const reviewsLimit = parseInt(searchParams.get('reviewsLimit')) || 10;
 
-    // Get user from token if enrollment status or review eligibility is requested
+    // Get user from AuthService if enrollment status or review eligibility is requested
     let user = null;
     if (includeEnrollmentStatus || includeReviewEligibility) {
-      const authHeader = request.headers.get('authorization');
-      const token = authHeader?.startsWith('Bearer ') 
-        ? authHeader.substring(7) 
-        : request.cookies.get('token')?.value;
-
-      if (token) {
-        try {
-          const payload = await verifyToken(token);
-          const User = (await import('@/lib/models/User')).default;
-          user = await User.findById(payload.userId);
-        } catch (error) {
-          // Token invalid, continue without user
-        }
+      const authResult = await AuthService.getAuthenticatedUser(request);
+      if (authResult.success) {
+        user = authResult.user;
       }
     }
     

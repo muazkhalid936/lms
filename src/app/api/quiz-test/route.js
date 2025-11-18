@@ -1,17 +1,49 @@
 import { NextResponse } from 'next/server';
 import { writeFile, mkdir, unlink } from 'fs/promises';
-import { existsSync, createReadStream } from 'fs';
+import { existsSync, createReadStream ,createWriteStream} from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import OpenAI from 'openai';
 import { stat } from 'fs/promises';
+import https from 'https';
+import http from 'http';
 
 const execPromise = promisify(exec);
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_KEY,
 });
+
+async function downloadFile(url, filePath) {
+    return new Promise((resolve, reject) => {
+        const protocol = url.startsWith('https') ? https : http;
+        const fileStream = createWriteStream(filePath);
+        
+        protocol.get(url, (response) => {
+            if (response.statusCode !== 200) {
+                reject(new Error(`Failed to download file: ${response.statusCode}`));
+                return;
+            }
+            
+            response.pipe(fileStream);
+            
+            fileStream.on('finish', () => {
+                fileStream.close();
+                resolve();
+            });
+            
+            fileStream.on('error', (err) => {
+                unlink(filePath).catch(() => {});
+                reject(err);
+            });
+            
+        }).on('error', (err) => {
+            unlink(filePath).catch(() => {});
+            reject(err);
+        });
+    });
+}
 
 export async function POST(request) {
     let videoPath = null;
@@ -27,27 +59,14 @@ export async function POST(request) {
 
         const formData = await request.formData();
         const videoFile = formData.get('video');
+        const videoUrl = formData.get('videoUrl');
+        const filename = formData.get('filename');
         const sectionId = formData.get('sectionId');
         const courseId = formData.get('courseId');
 
-        if (!videoFile) {
+        if (!videoFile && !videoUrl) {
             return NextResponse.json(
-                { error: 'No video file provided' },
-                { status: 400 }
-            );
-        }
-
-        if (!videoFile.type.startsWith('video/')) {
-            return NextResponse.json(
-                { error: 'File must be a video' },
-                { status: 400 }
-            );
-        }
-
-        const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
-    if (videoFile.size > maxSize) {
-      return NextResponse.json(
-        { error: 'Video file too large. Maximum size is 2GB' },
+                { error: 'No video file or URL provided' },
                 { status: 400 }
             );
         }
@@ -57,20 +76,45 @@ export async function POST(request) {
             await mkdir(uploadsDir, { recursive: true });
         }
 
-        const bytes = await videoFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        const filename = `video-${Date.now()}-${videoFile.name.replace(/\s/g, '-')}`;
-        videoPath = path.join(uploadsDir, filename);
+        if (videoFile) {
+            if (!videoFile.type.startsWith('video/')) {
+                return NextResponse.json(
+                    { error: 'File must be a video' },
+                    { status: 400 }
+                );
+            }
 
-        await writeFile(videoPath, buffer);
-        console.log(`Video saved temporarily at: ${videoPath}`);
+            const maxSize = 2 * 1024 * 1024 * 1024; 
+            if (videoFile.size > maxSize) {
+                return NextResponse.json(
+                    { error: 'Video file too large. Maximum size is 2GB' },
+                    { status: 400 }
+                );
+            }
 
-        const quiz = await generateQuizFromVideo(videoPath, videoFile.name);
+            const bytes = await videoFile.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const generatedFilename = `video-${Date.now()}-${videoFile.name.replace(/\s/g, '-')}`;
+            videoPath = path.join(uploadsDir, generatedFilename);
+            await writeFile(videoPath, buffer);
+            
+        } else if (videoUrl) {
+            const generatedFilename = `video-${Date.now()}-${filename || 'video'}.mp4`;
+            videoPath = path.join(uploadsDir, generatedFilename);
+            await downloadFile(videoUrl, videoPath);
+        }
 
-        // Convert the generated quiz to your quiz format
+        const stats = await stat(videoPath);
+        if (stats.size === 0) {
+            throw new Error('Video file is empty or invalid');
+        }
+
+        const finalFilename = filename || videoFile?.name || 'video';
+        const quiz = await generateQuizFromVideo(videoPath, finalFilename);
+
         const formattedQuiz = {
             title: quiz.title,
-            description: `AI-generated quiz from video: ${videoFile.name}`,
+            description: `AI-generated quiz from video: ${finalFilename}`,
             questions: quiz.questions.map((q, index) => ({
                 question: q.question,
                 options: q.options.map((option, optIndex) => ({
@@ -103,7 +147,6 @@ export async function POST(request) {
         if (videoPath && existsSync(videoPath)) {
             try {
                 await unlink(videoPath);
-                console.log('Cleaned up temporary file after error');
             } catch (cleanupError) {
                 console.warn('Could not delete temporary file:', cleanupError.message);
             }
@@ -120,9 +163,7 @@ async function transcribeVideo(videoPath) {
     const audioPath = videoPath.replace(/\.[^/.]+$/, '.mp3');
 
     try {
-        console.log("Extracting audio from video...");
         
-        // Check if video has audio stream
         try {
             const { stdout } = await execPromise(`ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "${videoPath}"`);
             const hasAudio = stdout.trim().length > 0;
@@ -130,14 +171,11 @@ async function transcribeVideo(videoPath) {
             if (!hasAudio) {
                 throw new Error('Video file does not contain an audio stream. Please upload a video with audio.');
             }
-            console.log("✅ Video has audio stream");
         } catch (probeError) {
             console.warn('Could not check for audio stream:', probeError.message);
         }
         
-        // Extract audio
         await execPromise(`ffmpeg -i "${videoPath}" -vn -acodec libmp3lame -ar 16000 -ac 1 -q:a 2 "${audioPath}" -y`);
-        console.log("✅ Audio extracted successfully!");
 
         if (!existsSync(audioPath)) {
             throw new Error('Audio file was not created');
@@ -157,7 +195,6 @@ async function transcribeVideo(videoPath) {
         });
 
         await unlink(audioPath);
-        console.log("Audio file cleaned up");
         
         return transcription;
     } catch (error) {
@@ -183,8 +220,10 @@ async function transcribeVideo(videoPath) {
 
 async function generateQuizFromTranscription(transcription, filename) {
     try {
-        console.log('Generating quiz from transcription...');
-        console.log('Transcription length:', transcription.length);
+
+        if (transcription.length < 100) {
+            throw new Error('Transcription is too short to generate a meaningful quiz. Please ensure the video has clear spoken content.');
+        }
 
         const limitedTranscription = transcription.length > 4000 
             ? transcription.substring(0, 4000) + "... [content truncated]"
@@ -238,7 +277,6 @@ async function generateQuizFromTranscription(transcription, filename) {
         });
 
         const quizContent = completion.choices[0].message.content;
-        console.log('Raw AI response:', quizContent);
 
         let quizData;
         try {
@@ -249,7 +287,6 @@ async function generateQuizFromTranscription(transcription, filename) {
             if (jsonMatch) {
                 try {
                     quizData = JSON.parse(jsonMatch[0]);
-                    console.log('Successfully extracted JSON from response');
                 } catch (extractError) {
                     console.error('Failed to parse extracted JSON:', extractError);
                     throw new Error('AI response is not valid JSON');
@@ -264,13 +301,18 @@ async function generateQuizFromTranscription(transcription, filename) {
             throw new Error('Invalid quiz structure from AI - missing title or questions array');
         }
 
+        // Validate each question
         quizData.questions.forEach((q, index) => {
             if (!q.question || !q.options || !Array.isArray(q.options) || q.options.length !== 4 || !q.correctAnswer || !q.explanation) {
                 throw new Error(`Invalid question structure at index ${index}. Each question must have: question, options array with 4 items, correctAnswer, and explanation`);
             }
+
+            // Validate that correctAnswer matches one of the options
+            if (!q.options.includes(q.correctAnswer)) {
+                throw new Error(`Correct answer "${q.correctAnswer}" not found in options for question ${index + 1}`);
+            }
         });
 
-        console.log('Quiz validated successfully with', quizData.questions.length, 'questions');
         return quizData;
 
     } catch (error) {
@@ -283,21 +325,16 @@ async function generateQuizFromVideo(videoPath, filename) {
     let transcription;
 
     try {
-        console.log('Step 1: Starting video transcription...');
         transcription = await transcribeVideo(videoPath);
-        console.log('Transcription completed, length:', transcription.length);
 
         if (!transcription || transcription.length < 50) {
             throw new Error('Transcription too short or unclear audio. Please ensure the video has clear spoken content.');
         }
 
-        console.log('Step 2: Generating quiz from transcription...');
         const quiz = await generateQuizFromTranscription(transcription, filename);
-        console.log('Quiz generation completed');
 
         if (existsSync(videoPath)) {
             await unlink(videoPath);
-            console.log('Temporary video file deleted');
         }
 
         return quiz;

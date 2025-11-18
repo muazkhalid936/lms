@@ -54,6 +54,7 @@ export default function page() {
     totalCourses: 0,
     totalEarnings: 0,
   });
+  const [earningsData, setEarningsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -96,11 +97,25 @@ export default function page() {
       const response = await InstructorService.getInstructorStats();
 console.log(response)
       if (response.success) {
+        // Set stats for InstructorStats component
         setStats({
           totalStudents: response.data.totalStudents,
           totalCourses: response.data.totalCourses,
           totalEarnings: response.data.totalEarnings,
         });
+
+        // Set earnings data for EarningsChart component
+        if (response.data.monthlyEarnings) {
+          const chartData = response.data.monthlyEarnings.map(item => ({
+            month: item.month.split(' ')[0], // Get short month name
+            earnings: item.earnings,
+            fullMonth: item.month,
+            enrollments: item.enrollments
+          }));
+          setEarningsData(chartData);
+        } else {
+          setEarningsData([]);
+        }
       } else {
         throw new Error(response.message || "Failed to fetch stats");
       }
@@ -115,6 +130,7 @@ console.log(response)
         totalCourses: 0,
         totalEarnings: 0,
       });
+      setEarningsData([]);
     } finally {
       setLoading(false);
     }
@@ -134,7 +150,11 @@ console.log(response)
         error={error}
       />
       <div className="mt-5">
-        <EarningsChart />
+        <EarningsChart 
+          data={earningsData}
+          loading={loading}
+          error={error}
+        />
       </div>
 
       {/* Earnings table */}

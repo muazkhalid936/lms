@@ -24,6 +24,7 @@ import ConfirmationModal from "@/components/ui/ConfirmationModal";
 import Pagination from "@/components/common/Pagination";
 import AddLiveClassModal from "@/components/dashboard/instructor/AddLiveClassModal";
 import apiCaller from "@/lib/utils/apiCaller";
+import Link from "next/link";
 
 const LiveClassesPage = () => {
   const router = useRouter();
@@ -109,7 +110,12 @@ const LiveClassesPage = () => {
     try {
       setIsSubmitting(true);
       console.log("Form Data:", formData);
-      const response = await apiCaller.post("/api/live-classes", formData);
+      const dataToSend = {
+        ...formData,
+        scheduledDate: formData.scheduledDate, // REMOVE toISOString()
+      };
+
+      const response = await apiCaller.post("/api/live-classes", dataToSend);
 
       if (response.success) {
         toast.success("Live class created successfully!");
@@ -131,9 +137,13 @@ const LiveClassesPage = () => {
     e.preventDefault();
     try {
       setIsSubmitting(true);
+      const dataToSend = {
+        ...formData,
+        scheduledDate: new Date(formData.scheduledDate).toISOString(),
+      };
       const response = await apiCaller.put(
         `/api/live-classes/${editingClass._id}`,
-        formData
+        dataToSend
       );
 
       if (response.success) {
@@ -507,12 +517,14 @@ const LiveClassesPage = () => {
                               </button>
                             )}
                             {canJoinClass(liveClass) && (
-                              <button
-                                onClick={() => handleJoinClass(liveClass._id)}
+                              <Link
+                                // onClick={() => handleJoinClass(liveClass._id)}
+                                href={liveClass.zoomStartUrl}
+                                target="_blank"
                                 className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition-colors"
                               >
                                 Join
-                              </button>
+                              </Link>
                             )}
                             <button
                               onClick={() => openEditModal(liveClass)}

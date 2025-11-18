@@ -1,0 +1,1 @@
+export { default as ZoomEmbed } from './ZoomEmbed';

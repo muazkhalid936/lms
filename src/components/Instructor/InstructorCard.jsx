@@ -18,7 +18,7 @@ const InstructorCard = ({ instructor }) => {
           src={instructor.image }
           alt={instructor.name}
           fill
-          className="object-cover"
+          className="object-contain"
           unoptimized
         />
 

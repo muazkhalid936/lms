@@ -67,7 +67,10 @@ export async function GET(request, { params }) {
     }
 
     // Calculate which lessons are accessible and which quizzes are unlocked
-    const completedLessonIds = enrollment.completedLessons.map(cl => cl.lesson._id.toString());
+    // Filter out any completed lessons where the lesson reference is null (deleted lessons)
+    const completedLessonIds = enrollment.completedLessons
+      .filter(cl => cl.lesson && cl.lesson._id)
+      .map(cl => cl.lesson._id.toString());
     const accessibleLessons = {};
     const canAccessQuizzes = {};
     const chapterAccess = {};

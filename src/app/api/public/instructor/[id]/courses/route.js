@@ -69,7 +69,7 @@ export async function GET(request, { params }) {
           rating: course.rating?.average || 0,
           reviews: course.rating?.count || 0,
           category: course.category || 'General',
-          instructorAvatar: instructor.avatar || '/instructor/avatar.png',
+          instructorAvatar: instructor.avatar || '/dashboard/avatar.png',
           instructor: `${instructor.firstName} ${instructor.lastName}`.trim() || instructor.userName,
           instructorRole: 'Instructor',
           enrollments: enrollmentCount,

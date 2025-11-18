@@ -98,10 +98,10 @@ export async function GET(request) {
       
       // Add registration status
       classData.isRegistered = isRegistered;
-      classData.canJoin = isRegistered && (liveClass.status === 'live' || liveClass.status === 'scheduled');
+      classData.canJoin = liveClass.status === 'live';
       
-      // Only include join URL if student is registered
-      if (!isRegistered) {
+      // Always include join URL for live classes (no registration required)
+      if (liveClass.status !== 'live') {
         delete classData.zoomJoinUrl;
         delete classData.zoomPassword;
       }

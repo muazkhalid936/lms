@@ -17,8 +17,6 @@ const UpcomingClasses = ({
   tableHeaderStyling = "",
   itemsPerPage = 5,
   onJoinClass,
-  onRegisterClass,
-  registeringClassId,
 }) => {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,15 +34,9 @@ const UpcomingClasses = ({
   };
 
   const handleJoinClick = (classItem) => {
-    if (classItem.isRegistered && classItem.canJoin) {
+    // Direct join for live classes only
+    if (classItem.isLive && onJoinClass) {
       onJoinClass(classItem.id);
-    } else if (!classItem.isRegistered) {
-      // Show register option
-      if (onRegisterClass) {
-        onRegisterClass(classItem.id);
-      }
-    } else {
-      toast.error("This class is not available for joining at the moment.");
     }
   };
 
@@ -179,39 +171,14 @@ const UpcomingClasses = ({
                         </button>
                       ) : isJoin ? (
                         <div className="flex flex-col gap-2 items-end">
-                          {isRegistered ? (
+                          {status === "live" ? (
                             <button
                               onClick={() => handleJoinClick(classItem)}
-                              disabled={!canJoin}
-                              className={`px-[14px] py-[5px] text-white rounded-[100px] text-sm font-medium whitespace-nowrap transition-colors duration-200
-    ${
-      canJoin
-        ? "bg-[var(--rose-500)] hover:bg-red-500 cursor-pointer"
-        : "bg-gray-400 cursor-not-allowed"
-    }`}
+                              className="px-[14px] py-[5px] text-white rounded-[100px] text-sm font-medium whitespace-nowrap transition-colors duration-200 bg-[var(--rose-500)] hover:bg-red-500 cursor-pointer"
                             >
-                              {status === "live" ? "Join Now" : "Join"}
+                              Join Now
                             </button>
-                          ) : (
-                            <button
-                              onClick={() => handleJoinClick(classItem)}
-                              disabled={registeringClassId === classItem.id}
-                              className={`px-[14px] py-[5px] text-white rounded-[100px] text-sm font-medium cursor-pointer whitespace-nowrap transition-colors duration-200 ${
-                                registeringClassId === classItem.id
-                                  ? "bg-gray-400 cursor-not-allowed"
-                                  : "bg-blue-500 hover:bg-blue-600"
-                              }`}
-                            >
-                              {registeringClassId === classItem.id
-                                ? "Registering..."
-                                : "Register"}
-                            </button>
-                          )}
-                          {isRegistered && !canJoin && status !== "live" && (
-                            <span className="text-xs text-gray-500">
-                              Registered
-                            </span>
-                          )}
+                          ) : null}
                         </div>
                       ) : isViewRecording ? (
                         <button

@@ -4,6 +4,7 @@ import Course from "@/lib/models/Course";
 import Chapter from "@/lib/models/Chapter";
 import Lesson from "@/lib/models/Lesson";
 import Quiz from "@/lib/models/Quiz";
+import User from "@/lib/models/User"; // Import User model to register the schema
 import { uploadToS3 } from "@/lib/services/awsService";
 
 export async function POST(request) {

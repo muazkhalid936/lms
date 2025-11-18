@@ -6,6 +6,7 @@ import Lesson from '@/lib/models/Lesson';
 import Quiz from '@/lib/models/Quiz';
 import FAQ from '@/lib/models/FAQ';
 import Review from '@/lib/models/Review';
+import User from '@/lib/models/User'; // Import User model to register the schema
 import { deleteFromS3 } from '@/lib/services/awsService';
 
 export async function GET(request, { params }) {

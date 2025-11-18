@@ -132,7 +132,16 @@ class ZoomService {
         settings: defaultSettings
       };
 
+      console.log('Creating Zoom meeting with data:', meetingPayload);
+
       const meeting = await this.makeZoomRequest('/users/me/meetings', 'POST', meetingPayload);
+      
+      console.log('Zoom meeting created successfully:', {
+        id: meeting.id,
+        join_url: meeting.join_url,
+        start_url: meeting.start_url,
+        password: meeting.password
+      });
       
       return {
         success: true,

@@ -434,24 +434,18 @@ const page = () => {
             <Desc course={course} />
             <Content course={course} />
 
-            {user?.userType === "Instructor" ? (
-              <Reviews />
-            ) : (
-              <div className="flex flex-col gap-4">
-                <About course={course} />
-                <CourseReviews
-                  reviews={reviews}
-                  ratingStats={ratingStats}
-                  onLoadMore={
-                    reviewsPagination?.hasNextPage
-                      ? handleLoadMoreReviews
-                      : null
-                  }
-                  loading={reviewsLoading}
-                />
-                {/* <Comment course={course} /> */}
-              </div>
-            )}
+            <div className="flex flex-col gap-4">
+              <About course={course} />
+              <CourseReviews
+                reviews={reviews}
+                ratingStats={ratingStats}
+                onLoadMore={
+                  reviewsPagination?.hasNextPage ? handleLoadMoreReviews : null
+                }
+                loading={reviewsLoading}
+              />
+              {/* <Comment course={course} /> */}
+            </div>
           </div>
 
           <div className="w-full lg:w-[366px] flex flex-col gap-6 ">

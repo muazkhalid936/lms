@@ -35,14 +35,15 @@ export async function POST(request) {
 
     const result = await s3Client.send(command);
 
-    // Construct the public URL
-    const url = `https://${process.env.AWS_UPLOAD_BUCKET}.s3.${process.env.AWS_REGION || 'eu-north-1'}.amazonaws.com/${filename}`;
+    // Use the API file route for consistent access with signed URLs
+    const url = `/api/files/${encodeURIComponent(filename)}`;
 
     return NextResponse.json({
       success: true,
       url: url,
       key: result.Key,
-      location: result.Location
+      location: result.Location,
+      directS3Url: `https://${process.env.AWS_UPLOAD_BUCKET}.s3.${process.env.AWS_REGION || 'eu-north-1'}.amazonaws.com/${filename}`
     });
   } catch (error) {
     console.error('Multipart upload completion error:', error);

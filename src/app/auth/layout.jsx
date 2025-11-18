@@ -46,7 +46,7 @@ export default function AuthLayout({ children }) {
 
           <AuthFooter />
         </div>
-        <div className="lg:w-[50%] sticky top-0 h-fit">
+        <div className="lg:w-[50%] sticky top-4 h-fit  mr-4 flex justify-center items-center">
           <SideComponent isProfilePage={true} />
         </div>
       </div>

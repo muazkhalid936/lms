@@ -3,17 +3,12 @@ import React, { useState, useEffect } from "react";
 import { DateRange } from "react-date-range";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
-import InstructorService from "@/lib/services/instructorService";
-import toast from "react-hot-toast";
 
-const EarningsChart = () => {
+const EarningsChart = ({ data = [], loading = false, error = null }) => {
   const [hoveredBar, setHoveredBar] = useState(null);
   const [selectedRange, setSelectedRange] = useState("Last 12 Months");
   const [showDropdown, setShowDropdown] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const [dateRange, setDateRange] = useState([
     {
@@ -33,42 +28,6 @@ const EarningsChart = () => {
     "Last Month",
     "Custom Range",
   ];
-
-  useEffect(() => {
-    fetchEarningsData();
-  }, []);
-
-  const fetchEarningsData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await InstructorService.getInstructorStats();
-      
-      if (response.success && response.data.monthlyEarnings) {
-        // Transform the data for chart display
-        const chartData = response.data.monthlyEarnings.map(item => ({
-          month: item.month.split(' ')[0], // Get short month name
-          earnings: item.earnings,
-          fullMonth: item.month,
-          enrollments: item.enrollments
-        }));
-        
-        setData(chartData);
-      } else {
-        throw new Error('Failed to fetch earnings data');
-      }
-    } catch (error) {
-      console.error('Error fetching earnings data:', error);
-      setError(error.message);
-      toast.error('Failed to load earnings chart');
-      
-      // Fallback to empty data
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // If no data or all earnings are 0, show a different maxEarnings
   const maxEarnings = data.length > 0 ? Math.max(...data.map((d) => d.earnings), 100) : 100;
@@ -129,12 +88,6 @@ const EarningsChart = () => {
             </div>
             <p className="text-red-800 font-medium">Failed to load earnings chart</p>
             <p className="text-red-600 text-sm">{error}</p>
-            <button 
-              onClick={fetchEarningsData}
-              className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-            >
-              Try Again
-            </button>
           </div>
         </div>
       </div>

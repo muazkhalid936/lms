@@ -81,13 +81,11 @@ const Home = () => {
           tableHeading="Upcoming Live Classes"
         />
       ) : (
-        dashboardData?.upcomingClasses.length > 0 && (
-          <UpcomingClasses
-            classes={dashboardData?.upcomingClasses || []}
-            isDateAndTime={false}
-            isTableHeader={true}
-          />
-        )
+        <UpcomingClasses
+          classes={dashboardData?.upcomingClasses || []}
+          isDateAndTime={false}
+          isTableHeader={true}
+        />
       )}
     </div>
   );

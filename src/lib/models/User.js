@@ -162,6 +162,37 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Zoom integration fields for instructors
+    zoomIntegration: {
+      accessToken: {
+        type: String,
+        default: null,
+      },
+      refreshToken: {
+        type: String,
+        default: null,
+      },
+      expiresAt: {
+        type: Date,
+        default: null,
+      },
+      zoomUserId: {
+        type: String,
+        default: null,
+      },
+      zoomEmail: {
+        type: String,
+        default: null,
+      },
+      zoomDisplayName: {
+        type: String,
+        default: null,
+      },
+      connectedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   {
     timestamps: true,

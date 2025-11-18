@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/utils/dbConnect';
-import { verifyToken } from '@/lib/utils/auth';
+import AuthService from '@/lib/services/authService';
 
 export async function GET(request) {
   try {
@@ -9,47 +9,18 @@ export async function GET(request) {
     // Import models after database connection is established
     const { default: Course } = await import('@/lib/models/Course');
     const { default: Enrollment } = await import('@/lib/models/Enrollment');
-    const { default: User } = await import('@/lib/models/User');
 
-    // Get authorization token
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.startsWith('Bearer ') 
-      ? authHeader.substring(7) 
-      : request.cookies.get('token')?.value;
-
-    if (!token) {
+    // Use AuthService to verify instructor role
+    const authResult = await AuthService.requireRole(request, 'Instructor');
+    
+    if (!authResult.success) {
       return NextResponse.json(
-        { success: false, message: 'Authentication required' },
-        { status: 401 }
+        { success: false, message: authResult.message },
+        { status: authResult.status }
       );
     }
 
-    // Verify token and get user info
-    let user;
-    try {
-      const payload = await verifyToken(token);
-      user = await User.findById(payload.userId);
-      
-      if (!user) {
-        return NextResponse.json(
-          { success: false, message: 'User not found' },
-          { status: 404 }
-        );
-      }
-
-      // Only instructors can access course stats
-      if (user.userType !== 'Instructor') {
-        return NextResponse.json(
-          { success: false, message: 'Access denied. Only instructors can view course statistics.' },
-          { status: 403 }
-        );
-      }
-    } catch (error) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
+    const user = authResult.user;
 
     // Get all courses by this instructor with detailed information
     const instructorCourses = await Course.find({ 
