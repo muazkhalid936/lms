@@ -23,7 +23,7 @@ export async function GET(request) {
     zoomAuthUrl.searchParams.append('response_type', 'code');
     zoomAuthUrl.searchParams.append('client_id', clientId);
     zoomAuthUrl.searchParams.append('redirect_uri', redirectUri);
-    zoomAuthUrl.searchParams.append('scope', 'meeting:write meeting:read user:read');
+    zoomAuthUrl.searchParams.append('scope', 'meeting:write:meeting meeting:read:meeting user:read:user');
     zoomAuthUrl.searchParams.append('state', state);
 
     return NextResponse.redirect(zoomAuthUrl.toString());
