@@ -41,6 +41,8 @@ const LiveClassesPage = () => {
   const [classToDelete, setClassToDelete] = useState(null);
   const [editingClass, setEditingClass] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [zoomConnectionStatus, setZoomConnectionStatus] = useState(null);
+  const [checkingZoom, setCheckingZoom] = useState(true);
 
   // Form state for create/edit modal
   const [formData, setFormData] = useState({
@@ -58,6 +60,7 @@ const LiveClassesPage = () => {
 
   useEffect(() => {
     fetchLiveClasses();
+    checkZoomConnection();
     fetchCourses();
   }, [currentPage, searchTerm, statusFilter]);
 
@@ -105,6 +108,22 @@ const LiveClassesPage = () => {
     }
   };
 
+  const checkZoomConnection = async () => {
+    const id = localStorage.getItem("userId");
+    try {
+      setCheckingZoom(true);
+      const response = await fetch(`/api/instructor/zoom-status?instructorId=${id}`);
+      const result = await response.json();
+      if (result.success) {
+        setZoomConnectionStatus(result);
+      }
+    } catch (error) {
+      console.error("Error checking Zoom connection:", error);
+    } finally {
+      setCheckingZoom(false);
+    }
+  };
+
   const handleCreateClass = async (e) => {
     e.preventDefault();
     try {
@@ -123,11 +142,44 @@ const LiveClassesPage = () => {
         resetForm();
         fetchLiveClasses();
       } else {
-        toast.error(response.message || "Failed to create live class");
+        // Check if the error is related to Zoom connection
+        if (response.requiresZoomConnection) {
+          toast.error(
+            <div>
+              <div className="font-medium">Zoom Account Required</div>
+              <div className="text-sm">{response.error}</div>
+              <button 
+                onClick={() => router.push('/dashboard/instructor/settings?tab=zoom')}
+                className="mt-2 text-blue-600 underline text-sm"
+              >
+                Connect Zoom Account
+              </button>
+            </div>,
+            { duration: 8000 }
+          );
+        } else {
+          toast.error(response.message || "Failed to create live class");
+        }
       }
     } catch (error) {
       console.error("Error creating live class:", error);
-      toast.error(error.message || "Error creating live class");
+      if (error.response?.data?.requiresZoomConnection) {
+        toast.error(
+          <div>
+            <div className="font-medium">Zoom Account Required</div>
+            <div className="text-sm">{error.response.data.error}</div>
+            <button 
+              onClick={() => router.push('/dashboard/instructor/settings?tab=zoom')}
+              className="mt-2 text-blue-600 underline text-sm"
+            >
+              Connect Zoom Account
+            </button>
+          </div>,
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(error.message || "Error creating live class");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -371,13 +423,61 @@ const LiveClassesPage = () => {
           </p>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          onClick={() => {
+            if (zoomConnectionStatus?.isConnected) {
+              setShowCreateModal(true);
+            } else {
+              toast.error("Please connect your Zoom account first");
+              router.push("/dashboard/instructor/settings?tab=zoom");
+            }
+          }}
+          className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+            zoomConnectionStatus?.isConnected
+              ? "bg-red-500 hover:bg-red-600 text-white"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+          }`}
+          disabled={!zoomConnectionStatus?.isConnected}
         >
           <Plus size={20} />
           Create Live Class
         </button>
       </div>
+
+      {/* Zoom Connection Status Alert */}
+      {!checkingZoom && zoomConnectionStatus && !zoomConnectionStatus.isConnected && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-yellow-800">
+                Zoom Account Not Connected
+              </h3>
+              <p className="text-sm text-yellow-700 mt-1">
+                You need to connect your Zoom account to create and host live classes. 
+                This ensures meetings show your name as the host.
+              </p>
+              <div className="mt-3">
+                <button
+                  onClick={() => router.push("/dashboard/instructor/settings?tab=zoom")}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm px-4 py-2 rounded-md transition-colors"
+                >
+                  Connect Zoom Account
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => setZoomConnectionStatus({ ...zoomConnectionStatus, dismissed: true })}
+              className="flex-shrink-0 text-yellow-400 hover:text-yellow-600"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">

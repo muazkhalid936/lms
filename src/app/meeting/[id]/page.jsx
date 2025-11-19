@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ZoomEmbed } from "@/components/zoom";
-import ZoomAccountStatus from "@/components/meetings/ZoomAccountStatus";
 import { ArrowLeft, Home, Users, Clock, User } from "lucide-react";
 import toast from "react-hot-toast";
 import useAuthStore from "@/store/authStore";
@@ -17,19 +16,11 @@ const MeetingPage = () => {
   const [error, setError] = useState(null);
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
-  const [isInstructor, setIsInstructor] = useState(false);
-  const [meetingUrl, setMeetingUrl] = useState("");
 
   useEffect(() => {
     // Get user info from store and localStorage
     if (user) {
-      // Use instructor's actual name if they are the instructor
-      let displayName = user.userName || "";
-      if (user.userType === "Instructor" && user.firstName && user.lastName) {
-        displayName = `${user.firstName} ${user.lastName}`;
-      }
-      setUserName(displayName);
-      
+      setUserName(user.userName || "");
       const storedUserEmail = localStorage.getItem("userEmail") || user.email || "";
       setUserEmail(storedUserEmail);
     }
@@ -59,29 +50,11 @@ const MeetingPage = () => {
         const targetClass = liveClasses.find(cls => cls._id === id);
         
         if (targetClass) {
-          // Check if current user is the instructor
-          const currentUserIsInstructor = user && targetClass.instructor && 
-            (targetClass.instructor._id === user._id || targetClass.instructor === user._id);
-          
-          setIsInstructor(currentUserIsInstructor);
-          
-          // Set appropriate meeting URL based on user role
-          let appropriateMeetingUrl = targetClass.zoomJoinUrl;
-          if (currentUserIsInstructor && targetClass.zoomStartUrl) {
-            appropriateMeetingUrl = targetClass.zoomStartUrl;
-            console.log('Using instructor start URL for meeting');
-          } else {
-            console.log('Using join URL for student');
-          }
-          
-          setMeetingUrl(appropriateMeetingUrl);
-          
           setMeetingData({
             id: targetClass._id,
             title: targetClass.title,
             description: targetClass.description,
             zoomJoinUrl: targetClass.zoomJoinUrl,
-            zoomStartUrl: targetClass.zoomStartUrl,
             zoomPassword: targetClass.zoomPassword,
             course: targetClass.course,
             instructor: targetClass.instructor,
@@ -292,17 +265,13 @@ const MeetingPage = () => {
           )}
         </div> */}
 
-        {/* Zoom Account Status */}
-        <ZoomAccountStatus meetingData={meetingData} user={user} />
-
         {/* Zoom Meeting Container */}
         <div className="bg-white rounded-lg shadow-sm border">
           <ZoomEmbed
-            meetingUrl={meetingUrl}
+            meetingUrl={meetingData.zoomJoinUrl}
             meetingPassword={meetingData.zoomPassword}
             userName={userName}
             userEmail={userEmail}
-            isHost={isInstructor}
             className="w-full"
             autoJoin={true}
             showControls={true}

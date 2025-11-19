@@ -4,8 +4,7 @@ import LiveClass from "@/lib/models/LiveClass";
 import Course from "@/lib/models/Course";
 import User from "@/lib/models/User";
 import { verifyToken } from "@/lib/utils/auth";
-import zoomService from "@/lib/services/zoomService";
-import InstructorZoomService from "@/lib/services/instructorZoomService";
+import enhancedZoomService from "@/lib/services/enhancedZoomService";
 import { updateLiveClassStatuses } from "@/lib/utils/liveClassStatusUpdater";
 
 // GET - List live classes for instructor
@@ -202,71 +201,37 @@ export async function POST(request) {
       );
     }
 
-    // Create Zoom meeting - use instructor's account if available
-    let zoomResult;
-    let usingInstructorAccount = false;
-
-    // Check if instructor has connected their Zoom account
-    if (user.zoomIntegration && user.zoomIntegration.accessToken) {
-      try {
-        const instructorZoomService = new InstructorZoomService(user);
-        
-        if (instructorZoomService.hasValidIntegration()) {
-          console.log(`Using instructor's Zoom account for ${user.firstName} ${user.lastName}`);
-          
-          const meetingPassword = zoomService.generateMeetingPassword();
-          const zoomMeetingData = {
-            topic: title,
-            start_time: zoomService.formatDateForZoom(scheduledDateTime),
-            duration: parseInt(duration),
-            password: meetingPassword,
-            agenda: description,
-            settings: {
-              waiting_room: waitingRoomEnabled,
-              auto_recording: isRecordingEnabled ? "cloud" : "none",
-              participant_video: true,
-              host_video: true,
-              mute_upon_entry: true,
-            },
-          };
-
-          zoomResult = await instructorZoomService.createMeeting(zoomMeetingData);
-          usingInstructorAccount = true;
-        }
-      } catch (error) {
-        console.warn('Failed to use instructor Zoom account, falling back to system account:', error.message);
-      }
-    }
-
-    // Fallback to system Zoom account if instructor account not available or failed
-    if (!zoomResult || !zoomResult.success) {
-      console.log('Using system Zoom account as fallback');
-      const meetingPassword = zoomService.generateMeetingPassword();
-      const zoomMeetingData = {
-        topic: title,
-        start_time: zoomService.formatDateForZoom(scheduledDateTime),
-        duration: parseInt(duration),
-        password: meetingPassword,
-        agenda: description,
-        settings: {
-          waiting_room: waitingRoomEnabled,
-          auto_recording: isRecordingEnabled ? "cloud" : "none",
-          participant_video: true,
-          host_video: true,
-          mute_upon_entry: true,
+    // Check if instructor has Zoom connected
+    const isZoomConnected = await enhancedZoomService.isInstructorZoomConnected(user._id);
+    if (!isZoomConnected) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Zoom account not connected",
+          error: "Please connect your Zoom account in Settings > Zoom Integration before creating live classes.",
+          requiresZoomConnection: true
         },
-      };
-
-      zoomResult = await zoomService.createMeeting(zoomMeetingData);
-      usingInstructorAccount = false;
+        { status: 400 }
+      );
     }
 
-    console.log('Zoom meeting creation result:', {
-      success: zoomResult.success,
-      usingInstructorAccount,
-      instructorName: `${user.firstName} ${user.lastName}`,
-      meetingId: zoomResult.meeting?.id
-    });
+    // Create Zoom meeting using instructor's account
+    const meetingPassword = Math.random().toString(36).substring(2, 8); // Simple password generator
+    const zoomMeetingData = {
+      title: title,
+      description: description,
+      scheduledDate: scheduledDateTime,
+      duration: parseInt(duration),
+      password: meetingPassword,
+      waitingRoom: waitingRoomEnabled,
+      approval_type: 0, // Automatically approve
+      registration_type: 1, // Attendees register once
+      meeting_authentication: false,
+    };
+
+    const zoomResult = await enhancedZoomService.createInstructorMeeting(user._id, zoomMeetingData);
+
+    console.log('Zoom meeting creation result:', zoomResult);
 
     if (!zoomResult.success) {
       console.error('Failed to create Zoom meeting:', zoomResult.error);

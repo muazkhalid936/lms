@@ -6,7 +6,7 @@ import { generateToken } from "@/lib/utils/auth";
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/google/callback`;
+const REDIRECT_URI = `${process.env.FRONTEND_URL}/api/auth/google/callback`;
 
 const client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 
@@ -17,7 +17,7 @@ export async function GET(request) {
     const code = request.nextUrl.searchParams.get("code");
 
     if (!code) {
-      const redirectUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?error=code_missing`;
+      const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?error=code_missing`;
       return NextResponse.redirect(redirectUrl);
     }
 
@@ -63,7 +63,7 @@ export async function GET(request) {
     });
 
     // Create response and set cookie (no token in URL)
-    const response = NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?success=true`);
+    const response = NextResponse.redirect(`${process.env.FRONTEND_URL}/auth/callback?success=true`);
     
     response.cookies.set("token", token, {
       httpOnly: true,
@@ -76,7 +76,7 @@ export async function GET(request) {
     return response;
   } catch (error) {
     console.error("Google OAuth error:", error);
-    const redirectUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?error=oauth_failed`;
+    const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?error=oauth_failed`;
     return NextResponse.redirect(redirectUrl);
   }
 }

@@ -6,8 +6,7 @@ import SocialPlatforms from "@/components/dashboard/profile/SocialPlatforms";
 import Notifications from "@/components/dashboard/profile/Notifications";
 import SecuritySection from "@/components/dashboard/profile/SecuritySection";
 import EditProfileSection from "@/components/dashboard/profile/EditProfileSection";
-import ZoomIntegrationSettings from "@/components/dashboard/instructor/ZoomIntegrationSettings";
-import useAuthStore from "@/store/authStore";
+import ZoomConnectionManager from "@/components/dashboard/ZoomConnectionManager";
 
 const TABS = [
   { id: "profile", label: "Profile" },
@@ -43,8 +42,12 @@ function SettingsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tab = searchParams.get("tab") || "profile";
-  const { user, fetchUser } = useAuthStore();
-  const [userRefreshKey, setUserRefreshKey] = useState(0);
+  const [userId, setUserId] = useState(null);
+
+  useEffect(() => {
+    const id = localStorage.getItem("userId");
+    setUserId(id);
+  }, []);
 
   useEffect(() => {
     if (!searchParams.get("tab")) {
@@ -60,12 +63,6 @@ function SettingsContent() {
     router.push(`${window.location.pathname}?${params.toString()}`);
   };
 
-  const handleUserUpdate = async () => {
-    // Refresh user data from store
-    await fetchUser();
-    setUserRefreshKey(prev => prev + 1);
-  };
-
   return (
     <>
       <Tabs active={tab} onChange={handleChange} />
@@ -74,11 +71,21 @@ function SettingsContent() {
         {tab === "profile" && <EditProfileSection />}
         {tab === "security" && <SecuritySection />}
         {tab === "zoom" && (
-          <ZoomIntegrationSettings 
-            key={userRefreshKey}
-            user={user} 
-            onUpdate={handleUserUpdate} 
-          />
+          <div className="max-w-2xl">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Zoom Integration
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Connect your Zoom account to host live classes with your own credentials. 
+                This ensures that meetings show your name as the host instead of the platform's name.
+              </p>
+            </div>
+            <ZoomConnectionManager 
+              instructorId={userId} 
+              initialConnectionStatus={null}
+            />
+          </div>
         )}
         {tab === "notifications" && <Notifications />}
         {tab === "social" && <SocialPlatforms />}

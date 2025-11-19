@@ -215,8 +215,8 @@ const getBaseUrl = () => {
 
   // Server side - use environment variables or default
   return (
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    process.env.APP_URL ||
+    process.env.FRONTEND_URL ||
+    process.env.FRONTEND_URL ||
     process.env.NEXTAUTH_URL
   );
 };

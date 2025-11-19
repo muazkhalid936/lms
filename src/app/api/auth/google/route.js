@@ -3,7 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/google/callback`;
+const REDIRECT_URI = `${process.env.FRONTEND_URL}/api/auth/google/callback`;
 
 const client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 

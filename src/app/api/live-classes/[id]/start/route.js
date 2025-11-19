@@ -4,7 +4,6 @@ import LiveClass from '@/lib/models/LiveClass';
 import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/utils/auth';
 import zoomService from '@/lib/services/zoomService';
-import InstructorZoomService from '@/lib/services/instructorZoomService';
 
 // POST - Start live class (instructor only)
 export async function POST(request, { params }) {

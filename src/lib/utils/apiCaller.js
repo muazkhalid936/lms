@@ -2,7 +2,7 @@ import axios from 'axios';
 
 class ApiCaller {
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_BASE_URL ;
+    this.baseURL = process.env.FRONTEND_URL ;
     
     // Create axios instance
     this.client = axios.create({

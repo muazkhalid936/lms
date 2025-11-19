@@ -55,7 +55,7 @@ export async function POST(request) {
       );
     }
 
-    const origin = request.headers.get("origin") || process.env.APP_URL;
+    const origin = request.headers.get("origin") || process.env.FRONTEND_URL;
 
     const accountLink = await stripe.accountLinks.create({
       account: user.stripeAccountId,

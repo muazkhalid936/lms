@@ -46,9 +46,9 @@ export async function POST(request) {
 
     // Get the base URL for success and cancel URLs
     const baseUrl =
-      process.env.APP_URL ||
+      process.env.FRONTEND_URL ||
       process.env.NEXTAUTH_URL ||
-      process.env.NEXT_PUBLIC_BASE_URL;
+      process.env.FRONTEND_URL;
 
     console.log("Using base URL:", baseUrl); // Debug log
 

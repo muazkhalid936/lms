@@ -71,7 +71,7 @@ export async function POST(request) {
       }
 
       // Generate onboarding link
-      const origin = request.headers.get("origin") || process.env.APP_URL;
+      const origin = request.headers.get("origin") || process.env.FRONTEND_URL;
       const accountLink = await stripe.accountLinks.create({
         account: user.stripeAccountId,
         refresh_url: `${origin}/dashboard/instructor/payouts?refresh=1`,

@@ -4,7 +4,7 @@ import LiveClass from '@/lib/models/LiveClass';
 import Course from '@/lib/models/Course';
 import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/utils/auth';
-import zoomService from '@/lib/services/zoomService';
+import enhancedZoomService from '@/lib/services/enhancedZoomService';
 
 // GET - Get specific live class details
 export async function GET(request, { params }) {
@@ -192,7 +192,7 @@ export async function PUT(request, { params }) {
       
       if (title) updateData.topic = title;
       if (description) updateData.agenda = description;
-      if (scheduledDate) updateData.start_time = zoomService.formatDateForZoom(new Date(scheduledDate));
+      if (scheduledDate) updateData.start_time = enhancedZoomService.formatDateForZoom(new Date(scheduledDate));
       if (duration) updateData.duration = parseInt(duration);
       
       if (isRecordingEnabled !== undefined || waitingRoomEnabled !== undefined) {
@@ -202,7 +202,7 @@ export async function PUT(request, { params }) {
         };
       }
 
-      const zoomResult = await zoomService.updateMeeting(liveClass.zoomMeetingId, updateData);
+      const zoomResult = await enhancedZoomService.updateInstructorMeeting(user._id, liveClass.zoomMeetingId, updateData);
       
       if (!zoomResult.success) {
         return NextResponse.json(
@@ -321,7 +321,7 @@ export async function DELETE(request, { params }) {
     }
 
     // Delete Zoom meeting
-    const zoomResult = await zoomService.deleteMeeting(liveClass.zoomMeetingId);
+    const zoomResult = await enhancedZoomService.deleteInstructorMeeting(user._id, liveClass.zoomMeetingId);
     
     if (!zoomResult.success) {
       console.warn('Failed to delete Zoom meeting:', zoomResult.error);
