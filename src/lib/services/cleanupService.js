@@ -1,6 +1,6 @@
 import dbConnect from '@/lib/utils/dbConnect';
 import LiveClass from '@/lib/models/LiveClass';
-import zoomService from './zoomService';
+import agoraService from './agoraService';
 
 class CleanupService {
   constructor() {
@@ -86,27 +86,27 @@ class CleanupService {
       const expiredClasses = await LiveClass.find({
         expiresAt: { $lte: now },
         isCleanedUp: { $ne: true }
-      }).select('_id zoomMeetingId title scheduledDate status');
+      }).select('_id agoraChannelName title scheduledDate status');
 
       console.log(`Found ${expiredClasses.length} expired live classes to clean up`);
 
       let deletedCount = 0;
-      let zoomDeletionErrors = [];
+      let agoraDeletionErrors = [];
 
       for (const liveClass of expiredClasses) {
         try {
-          // Delete from Zoom if meeting exists
-          if (liveClass.zoomMeetingId) {
+          // Delete from Agora if channel exists
+          if (liveClass.agoraChannelName) {
             try {
-              await zoomService.deleteMeeting(liveClass.zoomMeetingId);
-              console.log(`Deleted Zoom meeting ${liveClass.zoomMeetingId} for class: ${liveClass.title}`);
-            } catch (zoomError) {
-              // Log zoom deletion error but continue with database cleanup
-              console.warn(`Failed to delete Zoom meeting ${liveClass.zoomMeetingId}:`, zoomError.message);
-              zoomDeletionErrors.push({
+              await agoraService.deleteChannel(liveClass.agoraChannelName);
+              console.log(`Deleted Agora channel ${liveClass.agoraChannelName} for class: ${liveClass.title}`);
+            } catch (agoraError) {
+              // Log agora deletion error but continue with database cleanup
+              console.warn(`Failed to delete Agora channel ${liveClass.agoraChannelName}:`, agoraError.message);
+              agoraDeletionErrors.push({
                 classId: liveClass._id,
-                zoomMeetingId: liveClass.zoomMeetingId,
-                error: zoomError.message
+                agoraChannelName: liveClass.agoraChannelName,
+                error: agoraError.message
               });
             }
           }
@@ -124,13 +124,13 @@ class CleanupService {
       const result = {
         deletedCount,
         totalFound: expiredClasses.length,
-        zoomDeletionErrors,
+        agoraDeletionErrors,
         timestamp: now
       };
 
       // Log summary
-      if (zoomDeletionErrors.length > 0) {
-        console.warn(`Cleanup completed with ${zoomDeletionErrors.length} Zoom deletion errors`);
+      if (agoraDeletionErrors.length > 0) {
+        console.warn(`Cleanup completed with ${agoraDeletionErrors.length} Agora deletion errors`);
       }
 
       return result;

@@ -117,8 +117,10 @@ const LiveClasses = () => {
         isRegistered: liveClass.isRegistered,
         canJoin: liveClass.canJoin,
         isLive: liveClass.status === "live",
-        zoomJoinUrl: liveClass.zoomJoinUrl,
-        zoomPassword: liveClass.zoomPassword,
+        agoraChannelName: liveClass.agoraChannelName,
+        agoraToken: liveClass.agoraToken,
+        agoraAppId: liveClass.agoraAppId,
+        agoraUid: liveClass.agoraUid,
         status: liveClass.status,
         recordingUrl: liveClass.recordingUrl,
       };
@@ -131,11 +133,11 @@ const LiveClasses = () => {
         (cls) => cls._id === classId
       );
       
-      if (classToJoin && classToJoin.zoomJoinUrl) {
+      if (classToJoin) {
         // Navigate to the dedicated meeting page
         router.push(`/meeting/${classId}`);
       } else {
-        toast.error("Join link is not available for this class.");
+        toast.error("Class not found.");
       }
     } catch (error) {
       console.error("Error joining class:", error);

@@ -119,14 +119,16 @@ export async function GET(request) {
       classData.registeredCount = liveClass.registeredStudents.length;
       classData.availableSpots = liveClass.maxParticipants - liveClass.registeredStudents.length;
       
-      // Only include join URL and password if student is registered
+      // Only include Agora channel info if student is registered
       if (!isRegistered) {
-        delete classData.zoomJoinUrl;
-        delete classData.zoomPassword;
+        delete classData.agoraChannelName;
+        delete classData.agoraToken;
+        delete classData.agoraAppId;
+        delete classData.agoraUid;
       }
       
-      // Always exclude instructor start URL
-      delete classData.zoomStartUrl;
+      // Always exclude instructor Agora info
+      delete classData.agoraToken; // Token should be private to instructor
       
       return classData;
     });

@@ -100,14 +100,16 @@ export async function GET(request) {
       classData.isRegistered = isRegistered;
       classData.canJoin = liveClass.status === 'live';
       
-      // Always include join URL for live classes (no registration required)
+      // Always include Agora channel info for live classes (no registration required)
       if (liveClass.status !== 'live') {
-        delete classData.zoomJoinUrl;
-        delete classData.zoomPassword;
+        delete classData.agoraChannelName;
+        delete classData.agoraToken;
+        delete classData.agoraAppId;
+        delete classData.agoraUid;
       }
       
-      // Never include start URL for students
-      delete classData.zoomStartUrl;
+      // Never include instructor Agora token for students
+      delete classData.agoraToken;
       
       return classData;
     });

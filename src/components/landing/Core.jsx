@@ -33,7 +33,7 @@ const features = [
     title: "Live Classes & Webinars",
 
     description:
-      "Schedule and host interactive live classes via zoom. Engage with students in real time.",
+      "Schedule and host interactive live classes via Agora. Engage with students in real time.",
     icon: Users,
     bg: "#FFF0EE",
     glow: "from-red-400/40 to-orange-400",

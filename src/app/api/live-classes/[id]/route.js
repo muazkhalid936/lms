@@ -4,7 +4,7 @@ import LiveClass from '@/lib/models/LiveClass';
 import Course from '@/lib/models/Course';
 import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/utils/auth';
-import enhancedZoomService from '@/lib/services/enhancedZoomService';
+import agoraService from '@/lib/services/agoraService';
 
 // GET - Get specific live class details
 export async function GET(request, { params }) {
@@ -74,7 +74,7 @@ export async function GET(request, { params }) {
 
     // For students, hide sensitive information
     if (user.userType === 'Student') {
-      liveClass.zoomStartUrl = undefined;
+      liveClass.agoraChannelName = undefined;
     }
 
     return NextResponse.json({
@@ -183,30 +183,25 @@ export async function PUT(request, { params }) {
       }
     }
 
-    // Update Zoom meeting if necessary
-    const needsZoomUpdate = title || description || scheduledDate || duration || 
+    // Update Agora channel if necessary
+    const needsAgoraUpdate = title || description || scheduledDate || duration || 
                            isRecordingEnabled !== undefined || waitingRoomEnabled !== undefined;
 
-    if (needsZoomUpdate) {
+    if (needsAgoraUpdate) {
       const updateData = {};
       
-      if (title) updateData.topic = title;
-      if (description) updateData.agenda = description;
-      if (scheduledDate) updateData.start_time = enhancedZoomService.formatDateForZoom(new Date(scheduledDate));
+      if (title) updateData.title = title;
+      if (description) updateData.description = description;
+      if (scheduledDate) updateData.scheduledDate = new Date(scheduledDate);
       if (duration) updateData.duration = parseInt(duration);
-      
-      if (isRecordingEnabled !== undefined || waitingRoomEnabled !== undefined) {
-        updateData.settings = {
-          waiting_room: waitingRoomEnabled !== undefined ? waitingRoomEnabled : liveClass.waitingRoomEnabled,
-          auto_recording: (isRecordingEnabled !== undefined ? isRecordingEnabled : liveClass.isRecordingEnabled) ? 'cloud' : 'none'
-        };
-      }
+      if (isRecordingEnabled !== undefined) updateData.isRecordingEnabled = isRecordingEnabled;
+      if (waitingRoomEnabled !== undefined) updateData.waitingRoomEnabled = waitingRoomEnabled;
 
-      const zoomResult = await enhancedZoomService.updateInstructorMeeting(user._id, liveClass.zoomMeetingId, updateData);
+      const agoraResult = await agoraService.updateChannel(liveClass.agoraChannelName, updateData);
       
-      if (!zoomResult.success) {
+      if (!agoraResult.success) {
         return NextResponse.json(
-          { success: false, message: 'Failed to update Zoom meeting', error: zoomResult.error },
+          { success: false, message: 'Failed to update Agora channel', error: agoraResult.error },
           { status: 500 }
         );
       }
@@ -320,12 +315,12 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    // Delete Zoom meeting
-    const zoomResult = await enhancedZoomService.deleteInstructorMeeting(user._id, liveClass.zoomMeetingId);
+    // Delete Agora channel
+    const agoraResult = await agoraService.deleteChannel(liveClass.agoraChannelName);
     
-    if (!zoomResult.success) {
-      console.warn('Failed to delete Zoom meeting:', zoomResult.error);
-      // Continue with database deletion even if Zoom deletion fails
+    if (!agoraResult.success) {
+      console.warn('Failed to delete Agora channel:', agoraResult.error);
+      // Continue with database deletion even if Agora deletion fails
     }
 
     // Delete live class from database

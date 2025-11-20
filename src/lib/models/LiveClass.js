@@ -42,22 +42,22 @@ const liveClassSchema = new mongoose.Schema(
       max: 480, // Max 8 hours
     },
 
-    // Zoom Integration
-    zoomMeetingId: {
+    // Agora Integration
+    agoraChannelName: {
       type: String,
       required: true,
       unique: true,
     },
-    zoomJoinUrl: {
+    agoraToken: {
       type: String,
       required: true,
     },
-    zoomStartUrl: {
+    agoraAppId: {
       type: String,
       required: true,
     },
-    zoomPassword: {
-      type: String,
+    agoraUid: {
+      type: Number,
       default: null,
     },
 

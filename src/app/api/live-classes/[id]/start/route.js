@@ -3,7 +3,7 @@ import dbConnect from '@/lib/utils/dbConnect';
 import LiveClass from '@/lib/models/LiveClass';
 import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/utils/auth';
-import zoomService from '@/lib/services/zoomService';
+import agoraService from '@/lib/services/agoraService';
 
 // POST - Start live class (instructor only)
 export async function POST(request, { params }) {
@@ -92,11 +92,11 @@ export async function POST(request, { params }) {
 
     await liveClass.save();
 
-    // Get Zoom meeting details to ensure it's still valid
-    const zoomMeetingResult = await zoomService.getMeeting(liveClass.zoomMeetingId);
+    // Get Agora channel details to ensure it's still valid
+    const agoraChannelResult = await agoraService.getChannel(liveClass.agoraChannelName);
     
-    if (!zoomMeetingResult.success) {
-      console.warn('Could not fetch Zoom meeting details:', zoomMeetingResult.error);
+    if (!agoraChannelResult.success) {
+      console.warn('Could not fetch Agora channel details:', agoraChannelResult.error);
     }
 
     return NextResponse.json({
@@ -108,8 +108,10 @@ export async function POST(request, { params }) {
         course: liveClass.course,
         status: liveClass.status,
         actualStartTime: liveClass.actualStartTime,
-        zoomStartUrl: liveClass.zoomStartUrl,
-        zoomJoinUrl: liveClass.zoomJoinUrl,
+        agoraChannelName: liveClass.agoraChannelName,
+        agoraToken: liveClass.agoraToken,
+        agoraAppId: liveClass.agoraAppId,
+        agoraUid: liveClass.agoraUid,
         registeredStudentsCount: liveClass.registeredStudents.length
       }
     });
@@ -191,27 +193,15 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Get meeting participants and recordings before ending
+    // Get channel participants before ending (Agora doesn't have built-in recording/participants like Zoom)
+    // For now, we'll just update the basic class info
+    // In a real implementation, you might integrate with Agora's RTM or analytics APIs
     try {
-      const participantsResult = await zoomService.getMeetingParticipants(liveClass.zoomMeetingId);
-      if (participantsResult.success) {
-        liveClass.attendees = participantsResult.participants.map(p => ({
-          name: p.name,
-          email: p.user_email,
-          joinTime: new Date(p.join_time),
-          leaveTime: new Date(p.leave_time),
-          duration: p.duration
-        }));
-      }
-
-      // Check for recordings (they might not be available immediately)
-      const recordingsResult = await zoomService.getMeetingRecordings(liveClass.zoomMeetingId);
-      if (recordingsResult.success && recordingsResult.recordings.length > 0) {
-        liveClass.recordingUrl = recordingsResult.recordings[0].play_url;
-        liveClass.recordingDownloadUrl = recordingsResult.recordings[0].download_url;
-      }
+      // Placeholder for future Agora RTM integration to get participants
+      // For now, we'll keep the existing attendees data if any
+      console.log('Class ending - Agora channel:', liveClass.agoraChannelName);
     } catch (error) {
-      console.warn('Error fetching meeting data:', error);
+      console.warn('Error fetching channel data:', error);
     }
 
     // Update class status to completed

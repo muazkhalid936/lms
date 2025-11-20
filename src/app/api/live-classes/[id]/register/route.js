@@ -174,8 +174,10 @@ export async function POST(request, { params }) {
         liveClassId: liveClass._id,
         title: liveClass.title,
         scheduledDate: liveClass.scheduledDate,
-        zoomJoinUrl: liveClass.zoomJoinUrl,
-        zoomPassword: liveClass.zoomPassword,
+        agoraChannelName: liveClass.agoraChannelName,
+        agoraAppId: liveClass.agoraAppId,
+        agoraUid: liveClass.agoraUid,
+        // Note: agoraToken is not returned here for security - it will be provided when joining
       },
     });
   } catch (error) {

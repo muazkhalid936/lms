@@ -4,7 +4,7 @@ import LiveClass from "@/lib/models/LiveClass";
 import Course from "@/lib/models/Course";
 import User from "@/lib/models/User";
 import { verifyToken } from "@/lib/utils/auth";
-import enhancedZoomService from "@/lib/services/enhancedZoomService";
+import agoraService from "@/lib/services/agoraService";
 import { updateLiveClassStatuses } from "@/lib/utils/liveClassStatusUpdater";
 
 // GET - List live classes for instructor
@@ -201,45 +201,23 @@ export async function POST(request) {
       );
     }
 
-    // Check if instructor has Zoom connected
-    const isZoomConnected = await enhancedZoomService.isInstructorZoomConnected(user._id);
-    if (!isZoomConnected) {
+    // Create Agora channel
+    const channelName = agoraService.generateChannelNameFromClass(courseId, user._id, scheduledDateTime);
+    const agoraResult = await agoraService.createChannel(channelName, {
+      maxParticipants: parseInt(maxParticipants),
+      isRecordingEnabled,
+      waitingRoomEnabled,
+    });
+
+    console.log('Agora channel creation result:', agoraResult);
+
+    if (!agoraResult.success) {
+      console.error('Failed to create Agora channel:', agoraResult.error);
       return NextResponse.json(
         {
           success: false,
-          message: "Zoom account not connected",
-          error: "Please connect your Zoom account in Settings > Zoom Integration before creating live classes.",
-          requiresZoomConnection: true
-        },
-        { status: 400 }
-      );
-    }
-
-    // Create Zoom meeting using instructor's account
-    const meetingPassword = Math.random().toString(36).substring(2, 8); // Simple password generator
-    const zoomMeetingData = {
-      title: title,
-      description: description,
-      scheduledDate: scheduledDateTime,
-      duration: parseInt(duration),
-      password: meetingPassword,
-      waitingRoom: waitingRoomEnabled,
-      approval_type: 0, // Automatically approve
-      registration_type: 1, // Attendees register once
-      meeting_authentication: false,
-    };
-
-    const zoomResult = await enhancedZoomService.createInstructorMeeting(user._id, zoomMeetingData);
-
-    console.log('Zoom meeting creation result:', zoomResult);
-
-    if (!zoomResult.success) {
-      console.error('Failed to create Zoom meeting:', zoomResult.error);
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Failed to create Zoom meeting",
-          error: zoomResult.error,
+          message: "Failed to create Agora channel",
+          error: agoraResult.error,
         },
         { status: 500 }
       );
@@ -261,10 +239,10 @@ export async function POST(request) {
       isRecordingEnabled,
       waitingRoomEnabled,
       isPublic,
-      zoomMeetingId: zoomResult.meeting.id,
-      zoomJoinUrl: zoomResult.meeting.join_url,
-      zoomStartUrl: zoomResult.meeting.start_url,
-      zoomPassword: zoomResult.meeting.password,
+      agoraChannelName: agoraResult.channel.channelName,
+      agoraToken: agoraResult.channel.instructorToken,
+      agoraAppId: agoraResult.channel.appId,
+      agoraUid: 0, // Instructor UID is 0
       expiresAt: expiresAt,
     });
 
